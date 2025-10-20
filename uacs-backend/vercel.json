@@ -2,14 +2,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "app.js",
+      "src": "./app.js",
       "use": "@vercel/node"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "app.js"
+      "src": "/(.*)",
+      "dest": "/app.js"
     }
-  ]
+  ],
+  "outputDirectory": "public"
 }
