@@ -11,9 +11,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 const allowedOrigins = [
-  'http://localhost:5173',    // Local development
-  'https://uacs-fe.vercel.app', // Production frontend
-  process.env.FRONTEND_URL    // Any additional URLs from env
+  'http://localhost:5173',          // Local development
+  'https://uacs-fe.vercel.app',     // Production frontend
+  'https://uacs-be.vercel.app',     // Production backend
+  process.env.FRONTEND_URL          // Any additional URLs from env
 ].filter(Boolean); // Remove any undefined values
 
 app.use(cors({
