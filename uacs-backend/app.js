@@ -53,5 +53,12 @@ mongoose.connection.once("open", () => {
   console.log("Database name:", mongoose.connection.name);
 });
 
-// Export the Express app for Vercel
-module.exports = app;
+// Handle both serverless and traditional environments
+if (process.env.VERCEL) {
+  // Export for serverless
+  module.exports = app;
+} else {
+  // Start server for local development
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
