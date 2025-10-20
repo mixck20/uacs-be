@@ -11,14 +11,18 @@ const app = express();
 // Middleware
 app.use(express.json());
 // CORS configuration
-app.use(cors({
-  origin: 'https://uacs-fe.vercel.app',
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://uacs-fe.vercel.app'
+    : 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Debug middleware
 app.use((req, res, next) => {
