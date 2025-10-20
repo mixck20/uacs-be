@@ -10,26 +10,14 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-const allowedOrigins = [
-  'http://localhost:5173',          // Local development
-  'https://uacs-fe.vercel.app',     // Production frontend
-  'https://uacs-be.vercel.app',     // Production backend
-  process.env.FRONTEND_URL          // Any additional URLs from env
-].filter(Boolean); // Remove any undefined values
-
+// CORS configuration
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
+  origin: 'https://uacs-fe.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Debug middleware
@@ -42,6 +30,9 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Handle OPTIONS preflight requests
+app.options('*', cors());
 
 // Routes
 const authRoutes = require("./routes/auth");
