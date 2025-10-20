@@ -4,8 +4,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "build": "echo 'Build completed'",
-    "vercel-build": "npm run build",
+    "build": "node app.js",
+    "dev": "node app.js",
     "send-test-email": "node scripts/sendTestEmail.js"
   },
   "engines": {
