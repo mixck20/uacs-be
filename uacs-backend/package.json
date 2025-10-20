@@ -4,7 +4,6 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "build": "echo 'Build step completed'",
     "dev": "node app.js",
     "send-test-email": "node scripts/sendTestEmail.js"
   },
