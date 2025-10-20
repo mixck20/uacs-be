@@ -11,10 +11,14 @@ const app = express();
 // Middleware
 app.use(express.json());
 // CORS configuration
-app.use(cors({
+const corsOptions = {
   origin: 'https://uacs-fe.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Debug middleware
 app.use((req, res, next) => {
@@ -26,9 +30,6 @@ app.use((req, res, next) => {
   });
   next();
 });
-
-// Handle OPTIONS preflight requests
-app.options('*', cors());
 
 // Routes
 const authRoutes = require("./routes/auth");
