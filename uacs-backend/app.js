@@ -13,21 +13,42 @@ app.use(express.json());
 // CORS configuration
 const corsOptions = {
   origin: 'https://uacs-fe.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
 
 // Debug middleware
 app.use((req, res, next) => {
-  console.log('Request:', {
+  const startTime = Date.now();
+  
+  // Log the incoming request
+  console.log('Incoming Request:', {
     method: req.method,
     path: req.path,
     headers: req.headers,
-    body: req.body
+    body: req.body,
+    timestamp: new Date().toISOString()
   });
+
+  // Add response logging
+  const oldSend = res.send;
+  res.send = function(data) {
+    const duration = Date.now() - startTime;
+    console.log('Response:', {
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+    return oldSend.apply(res, arguments);
+  };
+
   next();
 });
 
