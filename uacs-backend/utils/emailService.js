@@ -66,8 +66,16 @@ transporter.verify(function (error, success) {
 });
 
 const sendVerificationEmail = async (to, token) => {
+  console.log('Preparing verification email:', { to, tokenLength: token?.length });
+
   const baseUrl = process.env.FRONTEND_URL || 'https://uacs-fe.vercel.app';
-  const verificationUrl = `${baseUrl}/verify/${token}`;
+  console.log('Using base URL:', baseUrl);
+
+  // Ensure the token is URL-safe
+  const safeToken = encodeURIComponent(token);
+  const verificationUrl = `${baseUrl}/verify/${safeToken}`;
+  
+  console.log('Generated verification URL:', verificationUrl.replace(safeToken, '***TOKEN***'));
   
   const mailOptions = {
     from: `"UA Clinic System" <${SMTP_USER}>`,
@@ -111,11 +119,21 @@ const sendVerificationEmail = async (to, token) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    console.log('Welcome email sent to:', to);
+    console.log('Attempting to send verification email...');
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Verification email sent successfully:', {
+      to,
+      messageId: info.messageId,
+      response: info.response
+    });
     return true;
   } catch (error) {
-    console.error('Error sending welcome email:', error);
+    console.error('Error sending verification email:', {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode
+    });
     throw error;
   }
 };

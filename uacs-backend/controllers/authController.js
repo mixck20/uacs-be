@@ -110,21 +110,40 @@ exports.register = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.body;
-    console.log('Verification request received:', { token: token?.substring(0, 10) + '...' });
+    
+    // Log full request details for debugging
+    console.log('Verification request details:', {
+      body: req.body,
+      headers: req.headers,
+      token: token ? `${token.substring(0, 10)}...` : 'missing'
+    });
 
     if (!token) {
       console.log('No token provided in request');
       return res.status(400).json({ message: "Verification token is required" });
     }
 
+    // Trim any whitespace that might have been added
+    const cleanToken = token.trim();
+
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('Token decoded successfully:', { email: decoded.email });
+      decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
+      console.log('Token decoded successfully:', { 
+        email: decoded.email,
+        exp: new Date(decoded.exp * 1000).toISOString(),
+        iat: new Date(decoded.iat * 1000).toISOString()
+      });
     } catch (err) {
-      console.error('Token verification failed:', err.message);
+      console.error('Token verification failed:', {
+        error: err.message,
+        name: err.name,
+        expiredAt: err.expiredAt ? new Date(err.expiredAt).toISOString() : null
+      });
       return res.status(400).json({ 
-        message: "Invalid or expired verification token. Please request a new verification email." 
+        message: err.name === 'TokenExpiredError' ?
+          "Verification token has expired. Please request a new verification email." :
+          "Invalid verification token. Please request a new verification email."
       });
     }
 
@@ -155,13 +174,18 @@ exports.verifyEmail = async (req, res) => {
     }
 
     // Verify token matches and not expired
-    if (user.verificationToken !== token || user.verificationTokenExpires < Date.now()) {
+    if (user.verificationToken !== cleanToken || user.verificationTokenExpires < Date.now()) {
       console.error('Token mismatch or expired:', {
-        matches: user.verificationToken === token,
-        expired: user.verificationTokenExpires < Date.now()
+        matches: user.verificationToken === cleanToken,
+        expired: user.verificationTokenExpires < Date.now(),
+        storedToken: user.verificationToken?.substring(0, 10) + '...',
+        receivedToken: cleanToken.substring(0, 10) + '...'
       });
       return res.status(400).json({ 
-        message: "Invalid or expired verification token. Please request a new verification email." 
+        message: user.verificationTokenExpires < Date.now() 
+          ? "Verification token has expired. Please request a new verification email."
+          : "Invalid verification token. Please request a new verification email.",
+        success: false
       });
     }
 
@@ -189,7 +213,8 @@ exports.verifyEmail = async (req, res) => {
 
     res.json({ 
       message: "Email verified successfully! You can now log in.",
-      email: updatedUser.email 
+      email: updatedUser.email,
+      success: true
     });
   } catch (err) {
     console.error('Email verification error:', err);
