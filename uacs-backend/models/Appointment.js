@@ -4,7 +4,12 @@ const appointmentSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Patient',
-    required: true
+    required: false
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   },
   date: {
     type: Date,
@@ -17,7 +22,7 @@ const appointmentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['Checkup', 'Follow-up', 'Emergency', 'Consultation']
+    enum: ['Checkup', 'Follow-up', 'Emergency', 'Consultation', 'Online Consultation', 'Clinic Visit', 'Medical Certificate']
   },
   status: {
     type: String,
@@ -30,6 +35,22 @@ const appointmentSchema = new mongoose.Schema({
     required: true
   },
   notes: String,
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  consultationDetails: {
+    meetLink: String,
+    chatEnabled: {
+      type: Boolean,
+      default: false
+    },
+    duration: {
+      type: Number,
+      default: 30
+    }
+  },
+  certificateType: String,
   createdAt: {
     type: Date,
     default: Date.now

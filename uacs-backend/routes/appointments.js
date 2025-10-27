@@ -9,6 +9,8 @@ router.route('/')
   .get(appointmentController.getAllAppointments)
   .post(appointmentController.createAppointment);
 
+router.get('/user/my-appointments', appointmentController.getUserAppointments);
+
 router.route('/:id')
   .get(appointmentController.getAppointment)
   .put(appointmentController.updateAppointment)
