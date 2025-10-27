@@ -14,7 +14,7 @@ app.use(express.json());
 const corsOptions = {
   origin: 'https://uacs-fe.vercel.app',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'X-Requested-With'],
   credentials: true,
   preflightContinue: false,
