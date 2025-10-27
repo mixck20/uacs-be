@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
+const { createMeetLink } = require('../utils/googleMeetService');
 
 exports.getAllAppointments = async (req, res) => {
   try {
@@ -74,21 +75,48 @@ exports.getAppointment = async (req, res) => {
 
 exports.updateAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findById(req.params.id)
+      .populate('userId', 'fullName email');
+    
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
 
-    // If confirming an online consultation, create Google Meet link placeholder
-    if (req.body.status === 'Confirmed' && (appointment.isOnline || appointment.type === 'Online Consultation')) {
-      // Generate a placeholder Google Meet link (in production, integrate with Google Calendar API)
-      const meetLink = `https://meet.google.com/placeholder-${appointment._id}`;
+    // If confirming an online consultation, create Google Meet link
+    if (req.body.status === 'Confirmed' && 
+        (appointment.isOnline || appointment.type === 'Online Consultation')) {
       
-      req.body.consultationDetails = {
-        ...appointment.consultationDetails,
-        meetLink: meetLink,
-        chatEnabled: true
-      };
+      console.log('Creating Google Meet link for appointment:', appointment._id);
+      
+      // Try to create a real Google Meet link
+      const meetResult = await createMeetLink({
+        date: appointment.date,
+        time: appointment.time,
+        duration: 30,
+        patientName: appointment.userId?.fullName || 'Patient',
+        patientEmail: appointment.userId?.email,
+        reason: appointment.reason,
+      });
+
+      if (meetResult.success) {
+        console.log('✅ Google Meet link created:', meetResult.meetLink);
+        req.body.consultationDetails = {
+          ...appointment.consultationDetails,
+          meetLink: meetResult.meetLink,
+          eventId: meetResult.eventId,
+          calendarLink: meetResult.calendarLink,
+          chatEnabled: true,
+        };
+      } else {
+        console.warn('⚠️ Google Meet link creation failed:', meetResult.error);
+        // Fallback to placeholder link
+        req.body.consultationDetails = {
+          ...appointment.consultationDetails,
+          meetLink: `https://meet.google.com/placeholder-${appointment._id}`,
+          chatEnabled: true,
+          error: meetResult.error,
+        };
+      }
       
       req.body.isOnline = true;
     }
@@ -98,10 +126,10 @@ exports.updateAppointment = async (req, res) => {
     
     await updatedAppointment.populate('userId', 'fullName email');
     
-    // Return the Meet link in the response if it was created
+    // Return the Meet link in the response
     res.json({
       ...updatedAppointment.toObject(),
-      meetLink: updatedAppointment.consultationDetails?.meetLink
+      meetLink: updatedAppointment.consultationDetails?.meetLink,
     });
   } catch (error) {
     console.error('Update appointment error:', error);
