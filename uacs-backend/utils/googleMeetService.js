@@ -11,9 +11,14 @@ function getCredentials() {
   const privateKey = process.env.GOOGLE_CALENDAR_PRIVATE_KEY;
 
   if (!clientEmail || !privateKey) {
-    console.warn('Google Calendar credentials not configured. Meet links will not be created.');
+    console.error('❌ Google Calendar credentials missing!');
+    console.error('CLIENT_EMAIL present:', !!clientEmail);
+    console.error('PRIVATE_KEY present:', !!privateKey);
     return null;
   }
+  
+  console.log('✅ Google Calendar credentials loaded');
+  console.log('Client Email:', clientEmail);
 
   return {
     client_email: clientEmail,
@@ -43,9 +48,11 @@ async function getAuthClient() {
 
     // Test the authentication
     await auth.authorize();
+    console.log('✅ Google Calendar authentication successful');
     return auth;
   } catch (error) {
-    console.error('Failed to authenticate with Google Calendar:', error.message);
+    console.error('❌ Failed to authenticate with Google Calendar:', error.message);
+    console.error('Full error:', error);
     return null;
   }
 }
@@ -62,16 +69,25 @@ async function getAuthClient() {
  * @returns {Promise<Object>} Result with meetLink and eventId, or error
  */
 async function createMeetLink(appointmentDetails) {
+  console.log('🔵 Creating Google Meet link...', {
+    date: appointmentDetails.date,
+    time: appointmentDetails.time,
+    patientName: appointmentDetails.patientName
+  });
+  
   try {
     const auth = await getAuthClient();
     
     if (!auth) {
+      console.error('❌ Auth client not available');
       return {
         success: false,
         error: 'Google Calendar API not configured',
         fallbackLink: null
       };
     }
+    
+    console.log('✅ Auth client obtained');
 
     const calendar = google.calendar({ version: 'v3', auth });
 
@@ -149,7 +165,9 @@ async function createMeetLink(appointmentDetails) {
     };
 
   } catch (error) {
-    console.error('Error creating Google Meet link:', error.message);
+    console.error('❌ Error creating Google Meet link:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error details:', JSON.stringify(error.errors || error, null, 2));
     
     return {
       success: false,
