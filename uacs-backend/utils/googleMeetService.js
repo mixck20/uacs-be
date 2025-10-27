@@ -39,6 +39,7 @@ async function getAuthClient() {
   }
 
   try {
+    console.log('🔑 Attempting authentication with Google Calendar API...');
     const auth = new google.auth.JWT(
       credentials.client_email,
       null,
@@ -52,7 +53,8 @@ async function getAuthClient() {
     return auth;
   } catch (error) {
     console.error('❌ Failed to authenticate with Google Calendar:', error.message);
-    console.error('Full error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     return null;
   }
 }
@@ -140,7 +142,8 @@ async function createMeetLink(appointmentDetails) {
       },
     };
 
-    console.log('Creating Google Calendar event with Meet link...');
+    console.log('📅 Creating Google Calendar event with Meet link...');
+    console.log('Event details:', JSON.stringify(event, null, 2));
 
     const response = await calendar.events.insert({
       calendarId: 'primary',
@@ -149,9 +152,12 @@ async function createMeetLink(appointmentDetails) {
       sendUpdates: patientEmail ? 'all' : 'none', // Send email if we have patient email
     });
 
+    console.log('📊 Calendar API Response:', JSON.stringify(response.data, null, 2));
+
     const meetLink = response.data.hangoutLink;
     
     if (!meetLink) {
+      console.error('⚠️ Meet link was not created in the response');
       throw new Error('Meet link was not created by Google Calendar API');
     }
 
