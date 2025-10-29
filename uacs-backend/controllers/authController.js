@@ -99,7 +99,6 @@ exports.register = async (req, res) => {
         existingPatient.userId = user._id;
         existingPatient.isRegisteredUser = true;
         await existingPatient.save();
-        console.log(`Linked existing patient record to new user: ${emailLower}`);
       }
     } catch (linkError) {
       console.error('Error linking patient record:', linkError);
@@ -134,17 +133,9 @@ exports.register = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.body;
-    
-    // Log full request details for debugging
-    console.log('Verification request details:', {
-      body: req.body,
-      headers: req.headers,
-      token: token ? `${token.substring(0, 10)}...` : 'missing'
-    });
 
     if (!token) {
-      console.log('No token provided in request');
-      return res.status(400).json({ message: "Verification token is required" });
+      return res.status(400).json({ message: 'Verification token is required' });
     }
 
     // Trim any whitespace that might have been added
@@ -153,17 +144,8 @@ exports.verifyEmail = async (req, res) => {
     let decoded;
     try {
       decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
-      console.log('Token decoded successfully:', { 
-        email: decoded.email,
-        exp: new Date(decoded.exp * 1000).toISOString(),
-        iat: new Date(decoded.iat * 1000).toISOString()
-      });
     } catch (err) {
-      console.error('Token verification failed:', {
-        error: err.message,
-        name: err.name,
-        expiredAt: err.expiredAt ? new Date(err.expiredAt).toISOString() : null
-      });
+      console.error('Token verification failed:', err.message);
       return res.status(400).json({ 
         message: err.name === 'TokenExpiredError' ?
           "Verification token has expired. Please request a new verification email." :
@@ -175,19 +157,10 @@ exports.verifyEmail = async (req, res) => {
     const user = await User.findOne({ email: decoded.email });
     
     if (!user) {
-      console.error('User not found:', decoded.email);
       return res.status(400).json({ 
         message: "User not found. Please register first." 
       });
     }
-
-    console.log('User found:', {
-      email: user.email,
-      currentToken: user.verificationToken?.substring(0, 10) + '...',
-      receivedToken: token.substring(0, 10) + '...',
-      tokenExpired: user.verificationTokenExpires < Date.now(),
-      isVerified: user.isVerified
-    });
 
     // If already verified, return success
     if (user.isVerified) {
@@ -229,11 +202,6 @@ exports.verifyEmail = async (req, res) => {
     if (!updatedUser) {
       throw new Error('Failed to update user verification status');
     }
-
-    console.log('User verified successfully:', {
-      email: updatedUser.email,
-      isVerified: updatedUser.isVerified
-    });
 
     res.json({ 
       message: "Email verified successfully! You can now log in.",

@@ -6,7 +6,6 @@ const Notification = require('../models/Notification');
 exports.getAllPatients = async (req, res) => {
   try {
     const { filter, search, showArchived } = req.query;
-    console.log('Fetching patients with filter:', filter, 'search:', search, 'showArchived:', showArchived);
     
     let query = {};
     
@@ -39,7 +38,6 @@ exports.getAllPatients = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
       
-    console.log(`Found ${patients.length} patients`);
     res.json(patients || []);
   } catch (error) {
     console.error('Error fetching patients:', error);

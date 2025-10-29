@@ -1,6 +1,4 @@
 require("dotenv").config();
-console.log("Starting server...");
-console.log("Loaded MONGODB_URI:", process.env.MONGODB_URI);
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -39,7 +37,6 @@ const corsOptions = {
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('⚠️ CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -59,35 +56,6 @@ app.use(cors(corsOptions));
 // Request logging
 app.use(requestLogger);
 
-// Debug middleware (can be removed in production)
-app.use((req, res, next) => {
-  const startTime = Date.now();
-  
-  // Log the incoming request
-  console.log('Incoming Request:', {
-    method: req.method,
-    path: req.path,
-    headers: req.headers,
-    body: req.body,
-    timestamp: new Date().toISOString()
-  });
-
-  // Add response logging
-  const oldSend = res.send;
-  res.send = function(data) {
-    const duration = Date.now() - startTime;
-    console.log('Response:', {
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
-    });
-    return oldSend.apply(res, arguments);
-  };
-
-  next();
-});
-
 // Routes
 const authRoutes = require("./routes/auth");
 const patientRoutes = require("./routes/patients");
@@ -102,15 +70,6 @@ const emailRoutes = require("./routes/email");
 
 // Apply specific rate limiters (DISABLED FOR DEVELOPMENT)
 const { authLimiter, appointmentLimiter } = require('./middleware/security');
-
-// Add request logging
-app.use((req, res, next) => {
-  if (req.path.includes('/api/email')) {
-    console.log(`🌐 Incoming request: ${req.method} ${req.path}`);
-    console.log('Headers:', req.headers);
-  }
-  next();
-});
 
 // app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/auth", authRoutes);
@@ -133,7 +92,6 @@ mongoose.connection.on("error", (err) => {
 
 mongoose.connection.once("open", () => {
   console.log("Connected to MongoDB");
-  console.log("Database name:", mongoose.connection.name);
 });
 
 // Error handling middleware
@@ -156,9 +114,7 @@ app.get('/health', (req, res) => {
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
-    console.log(`\n🚀 Server is running on port ${PORT}`);
-    console.log(`📍 Local: http://localhost:${PORT}`);
-    console.log(`📍 Health check: http://localhost:${PORT}/health\n`);
+    console.log(`Server is running on port ${PORT}`);
   });
 }
 

@@ -13,18 +13,8 @@ exports.getAllAppointments = async (req, res) => {
       .populate('userId', 'name email role courseYear')
       .sort({ createdAt: -1 });
     
-    console.log('Sample appointment data:', appointments[0]);
-    
     // Format appointments for frontend
     const formattedAppointments = appointments.map(apt => {
-      console.log('Formatting appointment:', {
-        id: apt._id,
-        userId: apt.userId?._id,
-        userName: apt.userId?.name,
-        userRole: apt.userId?.role,
-        userCourseYear: apt.userId?.courseYear
-      });
-      
       return {
         id: apt._id,
         patientId: apt.userId?._id || apt.patientId?._id,
@@ -73,7 +63,6 @@ exports.createAppointment = async (req, res) => {
     // Validate appointment data
     const validation = validateAppointmentData(req.body);
     if (!validation.valid) {
-      console.log('Validation failed:', validation.errors);
       return res.status(400).json({ 
         message: 'Validation failed: ' + validation.errors.join(', '),
         errors: validation.errors
@@ -92,13 +81,6 @@ exports.createAppointment = async (req, res) => {
     const existingActiveAppointment = await Appointment.findOne({
       userId: userId,
       status: { $in: ['Pending', 'Confirmed'] }
-    });
-
-    console.log('Existing active appointment check:', {
-      userId,
-      found: !!existingActiveAppointment,
-      appointmentId: existingActiveAppointment?._id,
-      status: existingActiveAppointment?.status
     });
 
     if (existingActiveAppointment) {
@@ -139,7 +121,6 @@ exports.createAppointment = async (req, res) => {
           });
           
           await patient.save();
-          console.log('Patient record created:', patient._id);
         }
       }
       
@@ -201,8 +182,6 @@ exports.updateAppointment = async (req, res) => {
     if (req.body.status === 'Confirmed' && 
         (appointment.isOnline || appointment.type === 'Online Consultation' || req.body.isOnline)) {
       
-      console.log('Creating Google Meet link for appointment:', appointment._id);
-      
       // Use date/time from request body if provided, otherwise use appointment's existing values
       let appointmentDate = req.body.date || appointment.date;
       const appointmentTime = req.body.time || appointment.time;
@@ -215,8 +194,6 @@ exports.updateAppointment = async (req, res) => {
         appointmentDate = appointmentDate.split('T')[0];
       }
       
-      console.log('📅 Formatted date for Google Meet:', { date: appointmentDate, time: appointmentTime });
-      
       // Try to create a real Google Meet link
       const meetResult = await createMeetLink({
         date: appointmentDate,
@@ -228,7 +205,6 @@ exports.updateAppointment = async (req, res) => {
       });
 
       if (meetResult.success) {
-        console.log('✅ Google Meet link created:', meetResult.meetLink);
         req.body.consultationDetails = {
           ...appointment.consultationDetails,
           meetLink: meetResult.meetLink,
@@ -322,12 +298,9 @@ exports.deleteAppointment = async (req, res) => {
 exports.getUserAppointments = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('Fetching appointments for userId:', userId);
     
     const appointments = await Appointment.find({ userId })
       .sort({ createdAt: -1 });
-    
-    console.log('Found appointments:', appointments.length);
     
     const formattedAppointments = appointments.map(apt => ({
       id: apt._id,
