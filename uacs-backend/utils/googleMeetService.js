@@ -1,29 +1,39 @@
 const { google } = require('googleapis');
 
 /**
- * Google Meet Service
+ * Google Meet Service with OAuth2
  * Handles automatic Google Meet link creation via Google Calendar API
  */
 
-// Load credentials from environment variables
-function getCredentials() {
-  const clientEmail = process.env.GOOGLE_CALENDAR_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_CALENDAR_PRIVATE_KEY;
+// OAuth2 Configuration
+function getOAuth2Client() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
-  if (!clientEmail || !privateKey) {
-    console.error('❌ Google Calendar credentials missing!');
-    console.error('CLIENT_EMAIL present:', !!clientEmail);
-    console.error('PRIVATE_KEY present:', !!privateKey);
+  if (!clientId || !clientSecret || !redirectUri) {
+    console.error('❌ OAuth2 credentials missing!');
+    console.error('CLIENT_ID present:', !!clientId);
+    console.error('CLIENT_SECRET present:', !!clientSecret);
+    console.error('REDIRECT_URI present:', !!redirectUri);
     return null;
   }
-  
-  console.log('✅ Google Calendar credentials loaded');
-  console.log('Client Email:', clientEmail);
 
-  return {
-    client_email: clientEmail,
-    private_key: privateKey.replace(/\\n/g, '\n'), // Handle escaped newlines
-  };
+  const oauth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    redirectUri
+  );
+
+  // Set refresh token if available
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (refreshToken) {
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken
+    });
+  }
+
+  return oauth2Client;
 }
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
@@ -32,31 +42,60 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
  * Get authenticated Google Calendar client
  */
 async function getAuthClient() {
-  const credentials = getCredentials();
+  const oauth2Client = getOAuth2Client();
   
-  if (!credentials) {
+  if (!oauth2Client) {
+    return null;
+  }
+
+  // Check if we have a refresh token
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!refreshToken) {
+    console.error('❌ No refresh token found. Please authorize the app first.');
+    console.error('🔗 Visit: http://localhost:3000/api/auth/google/authorize');
     return null;
   }
 
   try {
     console.log('🔑 Attempting authentication with Google Calendar API...');
-    const auth = new google.auth.JWT(
-      credentials.client_email,
-      null,
-      credentials.private_key,
-      SCOPES
-    );
-
-    // Test the authentication
-    await auth.authorize();
     console.log('✅ Google Calendar authentication successful');
-    return auth;
+    return oauth2Client;
   } catch (error) {
     console.error('❌ Failed to authenticate with Google Calendar:', error.message);
     console.error('Error code:', error.code);
-    console.error('Error details:', JSON.stringify(error, null, 2));
     return null;
   }
+}
+
+/**
+ * Generate authorization URL for first-time setup
+ */
+function getAuthUrl() {
+  const oauth2Client = getOAuth2Client();
+  if (!oauth2Client) {
+    return null;
+  }
+
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: SCOPES,
+    prompt: 'consent'
+  });
+
+  return authUrl;
+}
+
+/**
+ * Exchange authorization code for tokens
+ */
+async function getTokenFromCode(code) {
+  const oauth2Client = getOAuth2Client();
+  if (!oauth2Client) {
+    throw new Error('OAuth2 client not configured');
+  }
+
+  const { tokens } = await oauth2Client.getToken(code);
+  return tokens;
 }
 
 /**
@@ -74,6 +113,7 @@ async function createMeetLink(appointmentDetails) {
   console.log('🔵 Creating Google Meet link...', {
     date: appointmentDetails.date,
     time: appointmentDetails.time,
+    duration: appointmentDetails.duration,
     patientName: appointmentDetails.patientName
   });
   
@@ -95,15 +135,32 @@ async function createMeetLink(appointmentDetails) {
 
     const { date, time, duration = 30, patientName, patientEmail, reason } = appointmentDetails;
 
+    // Validate inputs
+    if (!date || !time) {
+      throw new Error(`Missing required fields - date: ${date}, time: ${time}`);
+    }
+
+    console.log('📝 Parsing date and time:', { date: typeof date, time: typeof time, dateValue: date, timeValue: time });
+
     // Parse date and time to create ISO datetime
     let startDateTime;
-    if (typeof date === 'string') {
-      // If date is a string like "2025-10-27"
-      startDateTime = new Date(`${date}T${time}`);
-    } else {
-      // If date is already a Date object
-      const dateStr = date.toISOString().split('T')[0];
-      startDateTime = new Date(`${dateStr}T${time}`);
+    try {
+      if (typeof date === 'string') {
+        // Ensure time has proper format (HH:mm or HH:mm:ss)
+        const timeStr = time.includes(':') ? time : `${time}:00`;
+        // If date is a string like "2025-10-27"
+        startDateTime = new Date(`${date}T${timeStr}:00.000+08:00`); // Asia/Manila timezone
+        console.log('📅 Parsed from string:', startDateTime.toISOString());
+      } else {
+        // If date is already a Date object
+        const dateStr = new Date(date).toISOString().split('T')[0];
+        const timeStr = time.includes(':') ? time : `${time}:00`;
+        startDateTime = new Date(`${dateStr}T${timeStr}:00.000+08:00`);
+        console.log('📅 Parsed from Date object:', startDateTime.toISOString());
+      }
+    } catch (parseError) {
+      console.error('❌ Date parsing error:', parseError.message);
+      throw new Error(`Date parsing failed: ${parseError.message}`);
     }
 
     // Calculate end time
@@ -111,8 +168,14 @@ async function createMeetLink(appointmentDetails) {
 
     // Validate dates
     if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+      console.error('❌ Invalid datetime:', { start: startDateTime, end: endDateTime });
       throw new Error('Invalid date or time format');
     }
+
+    console.log('✅ Valid datetime created:', {
+      start: startDateTime.toISOString(),
+      end: endDateTime.toISOString()
+    });
 
     // Create calendar event with Google Meet
     const event = {
@@ -132,7 +195,7 @@ async function createMeetLink(appointmentDetails) {
           conferenceSolutionKey: { type: 'hangoutsMeet' },
         },
       },
-      attendees: patientEmail ? [{ email: patientEmail }] : [],
+      // Don't include attendees for service accounts without domain-wide delegation
       reminders: {
         useDefault: false,
         overrides: [
@@ -149,7 +212,7 @@ async function createMeetLink(appointmentDetails) {
       calendarId: 'primary',
       resource: event,
       conferenceDataVersion: 1,
-      sendUpdates: patientEmail ? 'all' : 'none', // Send email if we have patient email
+      sendUpdates: 'none',
     });
 
     console.log('📊 Calendar API Response:', JSON.stringify(response.data, null, 2));
@@ -175,9 +238,21 @@ async function createMeetLink(appointmentDetails) {
     console.error('Error code:', error.code);
     console.error('Error details:', JSON.stringify(error.errors || error, null, 2));
     
+    // Provide helpful error message for common issues
+    let errorMessage = error.message;
+    let helpfulTip = '';
+    
+    if (error.message.includes('Invalid conference type') || error.code === 400) {
+      errorMessage = 'Service accounts cannot create Google Meet links without Domain-Wide Delegation';
+      helpfulTip = 'Please set up Domain-Wide Delegation in Google Workspace Admin Console, or use a regular Gmail account with OAuth2 instead of a service account.';
+    }
+    
+    console.error('💡 Tip:', helpfulTip);
+    
     return {
       success: false,
-      error: error.message,
+      error: errorMessage,
+      helpfulTip: helpfulTip,
       fallbackLink: null,
     };
   }
@@ -266,4 +341,6 @@ module.exports = {
   createMeetLink,
   deleteMeetLink,
   updateMeetLink,
+  getAuthUrl,
+  getTokenFromCode,
 };

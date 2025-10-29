@@ -1,34 +1,37 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-exports.isAuthenticated = async (req, res, next) => {
+const isAuthenticated = async (req, res, next) => {
   try {
+    console.log('🔐 Auth middleware triggered for:', req.method, req.path);
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
-      console.log('No token provided');
+      console.log('❌ No token provided');
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    console.log('Verifying token:', token.substring(0, 20) + '...');
+    console.log('✅ Token found, verifying...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token:', decoded);
+    console.log('✅ Decoded token:', decoded);
 
     const user = await User.findById(decoded.userId);
-    console.log('Found user:', user ? { id: user._id, role: user.role, email: user.email } : 'No user');
+    console.log('✅ Found user:', user ? { id: user._id, role: user.role, email: user.email } : 'No user');
     
     if (!user) {
+      console.log('❌ User not found in database');
       return res.status(401).json({ message: 'User not found' });
     }
 
     req.user = user;
+    console.log('✅ Auth successful, proceeding to next middleware/controller');
     next();
   } catch (error) {
-    console.error('Auth error:', error);
+    console.error('❌ Auth error:', error.message);
     res.status(401).json({ message: 'Invalid token' });
   }
 };
 
-exports.isClinic = (req, res, next) => {
+const isClinic = (req, res, next) => {
   const allowedRoles = ['staff', 'admin', 'clinic_staff', 'clinic', 'CLINIC', 'ADMIN'];
   const userRole = (req.user.role || '').toLowerCase();
   
@@ -50,3 +53,7 @@ exports.isClinic = (req, res, next) => {
   }
   next();
 };
+
+module.exports = isAuthenticated;
+module.exports.isAuthenticated = isAuthenticated;
+module.exports.isClinic = isClinic;

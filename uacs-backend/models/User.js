@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     firstName: String,
     lastName: String,
     gender: String,
+    courseYear: { type: String }, // For students only: e.g., "BSIT 3rd Year"
     role: { 
       type: String, 
       enum: ["student", "faculty", "staff", "admin", "clinic_staff"],

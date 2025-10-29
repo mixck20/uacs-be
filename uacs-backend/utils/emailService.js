@@ -68,7 +68,8 @@ transporter.verify(function (error, success) {
 const sendVerificationEmail = async (to, token) => {
   console.log('Preparing verification email:', { to, tokenLength: token?.length });
 
-  const baseUrl = process.env.FRONTEND_URL || 'https://uacs-fe.vercel.app';
+  // Get frontend URL from environment variable
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   console.log('Using base URL:', baseUrl);
 
   // Ensure the token is URL-safe
@@ -139,7 +140,9 @@ const sendVerificationEmail = async (to, token) => {
 };
 
 const sendPasswordResetEmail = async (to, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'https://uacs-fe.vercel.app'}/reset-password?token=${token}`;
+  // Get frontend URL from environment variable
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
   
   const mailOptions = {
     from: `"UACS System" <${process.env.SMTP_USER}>`,
