@@ -33,6 +33,41 @@ const inventorySchema = new mongoose.Schema({
   },
   location: String,
   description: String,
+  dispensingHistory: [{
+    patientName: String,
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Patient'
+    },
+    studentId: String,
+    quantity: {
+      type: Number,
+      required: true
+    },
+    dispensedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    appointmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Appointment'
+    },
+    reason: String,
+    notes: String,
+    dispensedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  lastRestocked: {
+    quantity: Number,
+    date: Date,
+    by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

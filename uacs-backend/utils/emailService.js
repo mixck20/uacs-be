@@ -191,7 +191,115 @@ const sendPasswordResetEmail = async (to, token) => {
   }
 };
 
+// Send low stock alert email
+const sendLowStockAlert = async ({ itemName, currentQuantity, minQuantity, category }) => {
+  const User = require('../models/User');
+  
+  try {
+    // Get all clinic staff and admins
+    const recipients = await User.find({
+      role: { $in: ['admin', 'clinic', 'clinic_staff'] },
+      isVerified: true
+    }).select('email name');
+
+    if (recipients.length === 0) {
+      console.log('No clinic staff/admin to notify about low stock');
+      return;
+    }
+
+    const emailList = recipients.map(r => r.email).join(', ');
+    
+    const mailOptions = {
+      from: {
+        name: 'UA Clinic System',
+        address: SMTP_USER
+      },
+      to: emailList,
+      subject: `⚠️ Low Stock Alert: ${itemName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+          <div style="background: linear-gradient(135deg, #e51d5e 0%, #ff6b9d 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">⚠️ Low Stock Alert</h1>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px;">
+              <strong style="color: #856404;">Attention Required:</strong>
+              <p style="margin: 5px 0 0 0; color: #856404;">The following item is running low in stock.</p>
+            </div>
+
+            <div style="margin: 25px 0;">
+              <h2 style="color: #e51d5e; margin-bottom: 20px; border-bottom: 2px solid #e51d5e; padding-bottom: 10px;">
+                Item Details
+              </h2>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold; width: 40%;">Item Name:</td>
+                  <td style="padding: 12px; background: white;">${itemName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Category:</td>
+                  <td style="padding: 12px; background: white;">${category}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Current Stock:</td>
+                  <td style="padding: 12px; background: white; color: ${currentQuantity === 0 ? '#dc3545' : '#ffc107'}; font-weight: bold;">
+                    ${currentQuantity} ${currentQuantity === 0 ? '(OUT OF STOCK)' : ''}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Minimum Required:</td>
+                  <td style="padding: 12px; background: white;">${minQuantity}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Status:</td>
+                  <td style="padding: 12px; background: white;">
+                    <span style="background: ${currentQuantity === 0 ? '#dc3545' : '#ffc107'}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                      ${currentQuantity === 0 ? 'OUT OF STOCK' : 'LOW STOCK'}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0;">
+              <strong style="color: #1565C0;">📋 Action Required:</strong>
+              <ul style="margin: 10px 0 0 0; color: #1565C0; padding-left: 20px;">
+                <li>Review current inventory levels</li>
+                <li>Place a restock order if needed</li>
+                <li>Contact supplier for availability</li>
+                <li>Update inventory system after restocking</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.FRONTEND_URL || 'https://uacs-fe.vercel.app'}/inventory" 
+                 style="display: inline-block; background: #e51d5e; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                View Inventory
+              </a>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #6c757d; font-size: 14px;">
+              <p style="margin: 5px 0;">This is an automated alert from UA Clinic Inventory System</p>
+              <p style="margin: 5px 0;">Please do not reply to this email</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Low stock alert sent for ${itemName} to ${recipients.length} recipient(s)`);
+    return true;
+  } catch (error) {
+    console.error('Error sending low stock alert:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendLowStockAlert
 };

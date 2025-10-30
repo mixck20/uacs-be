@@ -15,4 +15,10 @@ router.route('/:id')
   .put(inventoryController.updateItem)
   .delete(inventoryController.deleteItem);
 
+// Dispensing routes
+router.post('/dispense', inventoryController.dispenseItem);
+router.get('/dispensing/history/:itemId', inventoryController.getDispensingHistory);
+router.get('/dispensing/records', inventoryController.getAllDispensingRecords);
+router.get('/dispensing/stats', inventoryController.getDispensingStats);
+
 module.exports = router;
