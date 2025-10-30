@@ -180,14 +180,93 @@ exports.addVisitRecord = async (req, res) => {
       return res.status(404).json({ message: 'Patient not found' });
     }
     
+    const { dispenseMedications, ...visitInfo } = req.body;
+    
     const visitData = {
-      ...req.body,
+      ...visitInfo,
       date: new Date(),
       addedBy: req.user.id
     };
     
     patient.visits.push(visitData);
     await patient.save();
+    
+    // Auto-dispense medications if requested
+    const Inventory = require('../models/Inventory');
+    const { sendLowStockAlert } = require('../utils/emailService');
+    const User = require('../models/User');
+    
+    let dispensingResults = [];
+    if (dispenseMedications && Array.isArray(dispenseMedications) && dispenseMedications.length > 0) {
+      for (const med of dispenseMedications) {
+        try {
+          const item = await Inventory.findById(med.itemId);
+          if (!item) {
+            dispensingResults.push({ 
+              medication: med.medication, 
+              success: false, 
+              message: 'Item not found in inventory' 
+            });
+            continue;
+          }
+          
+          if (item.quantity < med.quantity) {
+            dispensingResults.push({ 
+              medication: med.medication, 
+              success: false, 
+              message: `Insufficient stock. Available: ${item.quantity}` 
+            });
+            continue;
+          }
+          
+          // Deduct from inventory
+          item.quantity -= med.quantity;
+          
+          // Add to dispensing history
+          item.dispensingHistory.push({
+            patientId: patient._id,
+            patientName: patient.fullName,
+            studentId: patient.studentId || null,
+            quantity: med.quantity,
+            dispensedBy: req.user.id,
+            reason: visitData.diagnosis || 'Walk-in visit',
+            notes: `Prescribed during visit on ${visitData.date.toLocaleDateString()}`
+          });
+          
+          await item.save();
+          
+          dispensingResults.push({ 
+            medication: med.medication, 
+            success: true, 
+            newQuantity: item.quantity 
+          });
+          
+          // Send low stock alert if needed
+          if (item.quantity <= item.minQuantity) {
+            try {
+              const clinicStaff = await User.find({
+                role: { $in: ['admin', 'clinic', 'clinic_staff'] },
+                isVerified: true
+              });
+              
+              if (clinicStaff.length > 0) {
+                await sendLowStockAlert(item, clinicStaff);
+                console.log(`📧 Low stock alert sent for ${item.name}`);
+              }
+            } catch (emailError) {
+              console.error('❌ Failed to send low stock email:', emailError.message);
+            }
+          }
+        } catch (dispenseError) {
+          console.error('❌ Error dispensing medication:', dispenseError);
+          dispensingResults.push({ 
+            medication: med.medication, 
+            success: false, 
+            message: dispenseError.message 
+          });
+        }
+      }
+    }
     
     // Send notification to user if patient is linked to a user account
     if (patient.userId) {
@@ -209,7 +288,11 @@ exports.addVisitRecord = async (req, res) => {
       }
     }
     
-    res.json({ message: 'Visit record added successfully', patient });
+    res.json({ 
+      message: 'Visit record added successfully', 
+      patient,
+      dispensingResults: dispensingResults.length > 0 ? dispensingResults : undefined
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
