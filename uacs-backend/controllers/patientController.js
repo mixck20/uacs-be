@@ -52,6 +52,11 @@ exports.createPatient = async (req, res) => {
   try {
     const patientData = { ...req.body };
     
+    // Sanitize studentId: convert empty string to null for sparse unique index
+    if (patientData.studentId === '' || patientData.studentId === undefined) {
+      patientData.studentId = null;
+    }
+    
     // Check if linking to existing user by userId
     if (req.body.userId) {
       const user = await User.findById(req.body.userId);
@@ -124,6 +129,11 @@ exports.updatePatient = async (req, res) => {
     const patient = await Patient.findById(req.params.id);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Sanitize studentId: convert empty string to null for sparse unique index
+    if (req.body.studentId === '' || req.body.studentId === undefined) {
+      req.body.studentId = null;
     }
     
     // Track changes for edit history
