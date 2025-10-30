@@ -355,8 +355,8 @@ async function handleFailedLogin(loginAttempt, email, ipAddress, user, req) {
 
 exports.verifyToken = async (req, res) => {
   try {
-    // req.user is set by the auth middleware
-    const user = await User.findById(req.user.userId).select('-password');
+    // req.user is set by the auth middleware (already the full user object)
+    const user = req.user;
     
     if (!user) {
       return res.status(404).json({ message: "User not found" });
