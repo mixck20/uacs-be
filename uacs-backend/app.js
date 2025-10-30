@@ -67,6 +67,9 @@ const chatRoutes = require("./routes/chat");
 const certificateRoutes = require("./routes/certificates");
 const feedbackRoutes = require("./routes/feedback");
 const emailRoutes = require("./routes/email");
+const scheduleRoutes = require("./routes/schedule");
+const adminRoutes = require("./routes/admin");
+const aiChatRoutes = require("./routes/aiChat");
 
 // Apply specific rate limiters (DISABLED FOR DEVELOPMENT)
 const { authLimiter, appointmentLimiter } = require('./middleware/security');
@@ -82,6 +85,9 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/ai-chat", aiChatRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI);

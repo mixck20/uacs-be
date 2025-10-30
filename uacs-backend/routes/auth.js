@@ -15,4 +15,8 @@ router.post("/logout", auth, authController.logout);
 router.put("/profile", auth, authController.updateProfile);
 router.post("/change-password", auth, authController.changePassword);
 
+// Verification routes for profile changes
+router.post("/verify-email-change/:token", authController.verifyEmailChange);
+router.post("/verify-password-change/:token", authController.verifyPasswordChange);
+
 module.exports = router;

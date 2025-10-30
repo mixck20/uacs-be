@@ -19,7 +19,15 @@ const userSchema = new mongoose.Schema(
     emailUpdates: { type: Boolean, default: false },
     isVerified: { type: Boolean, default: false },
     verificationToken: String,
-    verificationTokenExpires: Date
+    verificationTokenExpires: Date,
+    // Email change verification
+    pendingEmail: String,
+    emailChangeToken: String,
+    emailChangeTokenExpiry: Date,
+    // Password change verification
+    pendingPassword: String,
+    passwordChangeToken: String,
+    passwordChangeTokenExpiry: Date
   },
   { timestamps: true }
 );

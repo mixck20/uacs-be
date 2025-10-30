@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const emailService = require("../utils/emailService");
 const { sendVerificationEmail } = require("../utils/emailService");
 const Patient = require("../models/Patient");
+const LoginAttempt = require("../models/LoginAttempt");
+const { createAuditLog } = require("../middleware/auditLogger");
 
 // Validate JWT_SECRET on startup
 if (!process.env.JWT_SECRET) {
@@ -219,13 +221,30 @@ exports.verifyEmail = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Please provide both email and password" });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const emailLower = email.toLowerCase();
+
+    // Check for existing login attempts
+    let loginAttempt = await LoginAttempt.findOne({ email: emailLower, ipAddress });
+    
+    // Check if account is locked
+    if (loginAttempt && loginAttempt.lockedUntil && loginAttempt.lockedUntil > new Date()) {
+      const remainingTime = Math.ceil((loginAttempt.lockedUntil - new Date()) / 1000 / 60);
+      return res.status(429).json({ 
+        message: `Too many failed login attempts. Please try again in ${remainingTime} minute(s).`,
+        lockedUntil: loginAttempt.lockedUntil
+      });
+    }
+
+    const user = await User.findOne({ email: emailLower });
     if (!user) {
+      // Log failed attempt
+      await handleFailedLogin(loginAttempt, emailLower, ipAddress, user, req);
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
@@ -238,7 +257,14 @@ exports.login = async (req, res) => {
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      // Log failed attempt
+      await handleFailedLogin(loginAttempt, emailLower, ipAddress, user, req);
       return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    // Successful login - reset attempts
+    if (loginAttempt) {
+      await LoginAttempt.deleteOne({ _id: loginAttempt._id });
     }
 
     const token = jwt.sign(
@@ -266,6 +292,16 @@ exports.login = async (req, res) => {
       emailUpdates: user.emailUpdates
     };
 
+    // Log successful login
+    await createAuditLog({
+      user,
+      action: 'LOGIN',
+      resource: 'Auth',
+      description: `User logged in successfully`,
+      req,
+      status: 'SUCCESS'
+    });
+
     res.json({
       message: "Login successful",
       token,
@@ -276,6 +312,46 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Login failed. Please try again later." });
   }
 };
+
+// Helper function to handle failed login attempts
+async function handleFailedLogin(loginAttempt, email, ipAddress, user, req) {
+  const MAX_ATTEMPTS = 5;
+  const LOCK_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+
+  if (!loginAttempt) {
+    // Create new login attempt record
+    loginAttempt = new LoginAttempt({
+      email,
+      ipAddress,
+      attempts: 1,
+      lastAttempt: new Date()
+    });
+  } else {
+    // Increment attempts
+    loginAttempt.attempts += 1;
+    loginAttempt.lastAttempt = new Date();
+
+    // Lock account if max attempts reached
+    if (loginAttempt.attempts >= MAX_ATTEMPTS) {
+      loginAttempt.lockedUntil = new Date(Date.now() + LOCK_TIME);
+    }
+  }
+
+  await loginAttempt.save();
+
+  // Log failed login attempt
+  if (user) {
+    await createAuditLog({
+      user,
+      action: 'LOGIN_FAILED',
+      resource: 'Auth',
+      description: `Failed login attempt (${loginAttempt.attempts}/${MAX_ATTEMPTS})`,
+      req,
+      status: 'FAILURE',
+      errorMessage: 'Invalid credentials'
+    });
+  }
+}
 
 exports.verifyToken = async (req, res) => {
   try {
@@ -367,8 +443,18 @@ exports.resendVerification = async (req, res) => {
 
 exports.logout = async (req, res) => {
   try {
-    // In a more advanced system, you might invalidate the token here
-    // For now, just send a success response
+    // Log logout action
+    if (req.user) {
+      await createAuditLog({
+        user: req.user,
+        action: 'LOGOUT',
+        resource: 'Auth',
+        description: `User logged out`,
+        req,
+        status: 'SUCCESS'
+      });
+    }
+    
     res.json({ message: "Logout successful" });
   } catch (err) {
     console.error('Logout error:', err);
@@ -380,10 +466,16 @@ exports.logout = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, course, year, contactNumber, emailUpdates } = req.body;
+    const { name, email, currentPassword, firstName, lastName, course, year, contactNumber, emailUpdates } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // Build update object with only provided fields
     const updateData = {};
+    if (name) updateData.name = name.trim();
     if (firstName) updateData.firstName = firstName.trim();
     if (lastName) updateData.lastName = lastName.trim();
     if (course) updateData.course = course.trim();
@@ -391,11 +483,76 @@ exports.updateProfile = async (req, res) => {
     if (contactNumber) updateData.contactNumber = contactNumber.trim();
     if (emailUpdates !== undefined) updateData.emailUpdates = !!emailUpdates;
 
+    // Handle email change - requires verification
+    if (email && email !== user.email) {
+      // Verify current password for email change
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Current password is required to change email" });
+      }
+
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      // Check if email is already taken
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({ message: "Email is already in use" });
+      }
+
+      // Generate verification token
+      const verificationToken = crypto.randomBytes(32).toString('hex');
+      
+      // Store pending email change
+      user.pendingEmail = email.toLowerCase();
+      user.emailChangeToken = verificationToken;
+      user.emailChangeTokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+      await user.save();
+
+      // Send verification email
+      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email-change/${verificationToken}`;
+      
+      try {
+        await sendEmail({
+          to: email,
+          subject: 'Verify Your New Email Address',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #e51d5e;">Verify Your New Email Address</h2>
+              <p>You requested to change your email address to this email.</p>
+              <p>Click the button below to verify and complete the email change:</p>
+              <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email Change</a>
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="color: #666; word-break: break-all;">${verificationUrl}</p>
+              <p>This link will expire in 24 hours.</p>
+              <p>If you didn't request this change, please ignore this email and secure your account.</p>
+            </div>
+          `
+        });
+
+        return res.json({
+          message: "Verification email sent to your new email address. Please check your inbox.",
+          requiresEmailVerification: true
+        });
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Rollback the pending email change
+        user.pendingEmail = undefined;
+        user.emailChangeToken = undefined;
+        user.emailChangeTokenExpiry = undefined;
+        await user.save();
+        return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+      }
+    }
+
+    // Update other profile fields (no email change)
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       updateData,
       { new: true, runValidators: true }
-    ).select('-password -verificationToken');
+    ).select('-password -verificationToken -emailChangeToken');
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -411,7 +568,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// Change password
+// Change password - requires email verification
 exports.changePassword = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -422,8 +579,8 @@ exports.changePassword = async (req, res) => {
     }
 
     // Password validation
-    if (newPassword.length < 8) {
-      return res.status(400).json({ message: "New password must be at least 8 characters long" });
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long" });
     }
 
     const user = await User.findById(userId);
@@ -443,14 +600,110 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: "New password must be different from current password" });
     }
 
-    // Hash new password
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash and store pending password temporarily
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+    
+    user.pendingPassword = hashedNewPassword;
+    user.passwordChangeToken = verificationToken;
+    user.passwordChangeTokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     await user.save();
 
-    res.json({ message: "Password changed successfully" });
+    // Send verification email
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-password-change/${verificationToken}`;
+    
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Verify Your Password Change',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #e51d5e;">Verify Your Password Change</h2>
+            <p>You requested to change your password.</p>
+            <p>Click the button below to verify and complete the password change:</p>
+            <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Password Change</a>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="color: #666; word-break: break-all;">${verificationUrl}</p>
+            <p>This link will expire in 24 hours.</p>
+            <p><strong>If you didn't request this change, please secure your account immediately.</strong></p>
+          </div>
+        `
+      });
+
+      res.json({ 
+        message: "Verification email sent. Please check your inbox to complete the password change.",
+        requiresVerification: true
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Rollback the pending password change
+      user.pendingPassword = undefined;
+      user.passwordChangeToken = undefined;
+      user.passwordChangeTokenExpiry = undefined;
+      await user.save();
+      return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+    }
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).json({ message: "Failed to change password" });
+  }
+};
+
+// Verify email change
+exports.verifyEmailChange = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({
+      emailChangeToken: token,
+      emailChangeTokenExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification token" });
+    }
+
+    // Update email
+    user.email = user.pendingEmail;
+    user.pendingEmail = undefined;
+    user.emailChangeToken = undefined;
+    user.emailChangeTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ message: "Email changed successfully. Please login with your new email." });
+  } catch (err) {
+    console.error('Verify email change error:', err);
+    res.status(500).json({ message: "Failed to verify email change" });
+  }
+};
+
+// Verify password change
+exports.verifyPasswordChange = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({
+      passwordChangeToken: token,
+      passwordChangeTokenExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification token" });
+    }
+
+    // Update password
+    user.password = user.pendingPassword;
+    user.pendingPassword = undefined;
+    user.passwordChangeToken = undefined;
+    user.passwordChangeTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ message: "Password changed successfully. Please login with your new password." });
+  } catch (err) {
+    console.error('Verify password change error:', err);
+    res.status(500).json({ message: "Failed to verify password change" });
   }
 };
