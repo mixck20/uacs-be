@@ -22,6 +22,8 @@ const notificationSchema = new mongoose.Schema({
       'clinic_message',
       'email_verification',
       'health_record_added',
+      'feedback',
+      'feedback_response',
       'general'
     ]
   },
