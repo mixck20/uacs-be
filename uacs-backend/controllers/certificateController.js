@@ -7,7 +7,7 @@ const { jsPDF } = require('jspdf');
 exports.requestCertificate = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { purpose, requestNotes } = req.body;
+    const { purpose, requestNotes, visitIds } = req.body;
 
     // Find patient record
     const patient = await Patient.findOne({ userId });
@@ -15,9 +15,21 @@ exports.requestCertificate = async (req, res) => {
       return res.status(404).json({ message: 'Patient record not found' });
     }
 
+    // Validate that the selected visits exist in patient's records
+    if (visitIds && visitIds.length > 0) {
+      const validVisitIds = patient.visits
+        .filter(visit => visitIds.includes(visit._id.toString()))
+        .map(visit => visit._id.toString());
+      
+      if (validVisitIds.length === 0) {
+        return res.status(400).json({ message: 'Invalid visit selections' });
+      }
+    }
+
     const certificate = new MedicalCertificate({
       userId,
       patientId: patient._id,
+      visitIds: visitIds || [],
       purpose,
       requestNotes,
       status: 'pending'

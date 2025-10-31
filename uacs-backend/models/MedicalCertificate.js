@@ -12,6 +12,9 @@ const medicalCertificateSchema = new mongoose.Schema({
     ref: 'Patient',
     required: true
   },
+  visitIds: [{
+    type: String  // Store visit IDs from patient.visits array
+  }],
   purpose: {
     type: String,
     required: true,
