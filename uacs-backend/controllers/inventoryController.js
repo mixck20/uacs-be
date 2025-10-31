@@ -57,7 +57,7 @@ exports.deleteItem = async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
-    await item.remove();
+    await item.deleteOne();
     res.json({ message: 'Item deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
