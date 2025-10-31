@@ -155,6 +155,24 @@ exports.getPatientByUserId = async (req, res) => {
     const userId = req.user._id || req.user.id;
     console.log('📋 Fetching patient record for userId:', userId);
     console.log('   User email:', req.user.email);
+    console.log('   User name:', req.user.name);
+    
+    // Also check if there's a patient with this email but different userId (not linked properly)
+    const patientByEmail = await Patient.findOne({ email: req.user.email });
+    if (patientByEmail && patientByEmail.userId?.toString() !== userId.toString()) {
+      console.log('⚠️  Found patient by email but userId mismatch!');
+      console.log('   Patient userId:', patientByEmail.userId);
+      console.log('   Current userId:', userId);
+      console.log('   Fixing link now...');
+      
+      // Fix the link
+      patientByEmail.userId = userId;
+      patientByEmail.isRegisteredUser = true;
+      await patientByEmail.save();
+      
+      console.log('✅ Fixed patient-user link');
+      return res.json(patientByEmail);
+    }
     
     const patient = await Patient.findOne({ userId })
       .populate('visits.appointmentId')

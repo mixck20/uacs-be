@@ -96,8 +96,18 @@ exports.register = async (req, res) => {
 
     // Check if there's an existing patient record with this email and link it
     try {
+      console.log(`🔍 Searching for patient record with email: ${emailLower}`);
       const existingPatient = await Patient.findOne({ email: emailLower });
+      
       if (existingPatient) {
+        console.log(`📋 Found existing patient record:`, {
+          patientId: existingPatient._id,
+          patientName: existingPatient.fullName,
+          oldUserId: existingPatient.userId,
+          visitsCount: existingPatient.visits?.length || 0,
+          isArchived: existingPatient.isArchived
+        });
+        
         // Update the link to the new user account (preserve health records)
         existingPatient.userId = user._id;
         existingPatient.isRegisteredUser = true;
@@ -109,13 +119,17 @@ exports.register = async (req, res) => {
           existingPatient.archivedBy = null;
           existingPatient.archiveReason = null;
           existingPatient.archiveNotes = null;
+          console.log(`📂 Restored archived patient record`);
         }
         
         await existingPatient.save();
-        console.log(`✅ Linked existing patient record to new user account: ${emailLower}`);
+        console.log(`✅ Successfully linked patient record to new user account: ${emailLower}`);
+        console.log(`   New userId: ${user._id}`);
+      } else {
+        console.log(`ℹ️ No existing patient record found for: ${emailLower}`);
       }
     } catch (linkError) {
-      console.error('Error linking patient record:', linkError);
+      console.error('❌ Error linking patient record:', linkError);
       // Don't fail registration if linking fails
     }
 
