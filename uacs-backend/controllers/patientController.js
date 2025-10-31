@@ -57,6 +57,55 @@ exports.createPatient = async (req, res) => {
       patientData.studentId = null;
     }
     
+    // Check if a patient record with the same email already exists (preserve health records)
+    if (req.body.email) {
+      const existingPatient = await Patient.findOne({ 
+        email: req.body.email.toLowerCase() 
+      });
+      
+      if (existingPatient) {
+        // Patient record exists - update it instead of creating new one
+        console.log(`Found existing patient record for ${req.body.email} - preserving health records`);
+        
+        // Check if linking to user account
+        const existingUser = await User.findOne({ email: req.body.email.toLowerCase() });
+        if (existingUser) {
+          existingPatient.userId = existingUser._id;
+          existingPatient.isRegisteredUser = true;
+          console.log(`Re-linked patient to user account: ${req.body.email}`);
+        }
+        
+        // Update patient info but preserve visits/history
+        existingPatient.fullName = patientData.fullName || existingPatient.fullName;
+        existingPatient.firstName = patientData.firstName || existingPatient.firstName;
+        existingPatient.middleName = patientData.middleName || existingPatient.middleName;
+        existingPatient.surname = patientData.surname || existingPatient.surname;
+        existingPatient.contactNumber = patientData.contactNumber || existingPatient.contactNumber;
+        existingPatient.dateOfBirth = patientData.dateOfBirth || existingPatient.dateOfBirth;
+        existingPatient.gender = patientData.gender || existingPatient.gender;
+        existingPatient.address = patientData.address || existingPatient.address;
+        existingPatient.bloodType = patientData.bloodType || existingPatient.bloodType;
+        existingPatient.courseYearSection = patientData.courseYearSection || existingPatient.courseYearSection;
+        existingPatient.emergencyContact = patientData.emergencyContact || existingPatient.emergencyContact;
+        
+        // Restore from archive if it was archived
+        if (existingPatient.isArchived) {
+          existingPatient.isArchived = false;
+          existingPatient.archivedAt = null;
+          existingPatient.archivedBy = null;
+          existingPatient.archiveReason = null;
+          existingPatient.archiveNotes = null;
+          console.log(`Restored archived patient record for ${req.body.email}`);
+        }
+        
+        await existingPatient.save();
+        await existingPatient.populate('userId', 'name email role courseYear');
+        
+        return res.status(200).json(existingPatient);
+      }
+    }
+    
+    // No existing patient - create new one
     // Check if linking to existing user by userId
     if (req.body.userId) {
       const user = await User.findById(req.body.userId);
