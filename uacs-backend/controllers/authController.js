@@ -6,6 +6,7 @@ const { sendVerificationEmail } = require("../utils/emailService");
 const Patient = require("../models/Patient");
 const LoginAttempt = require("../models/LoginAttempt");
 const { createAuditLog } = require("../middleware/auditLogger");
+const { COURSE_TO_DEPARTMENT } = require("../utils/courseDepartmentMap");
 
 // Validate JWT_SECRET on startup
 if (!process.env.JWT_SECRET) {
@@ -87,14 +88,20 @@ exports.register = async (req, res) => {
       userObj.idNumber = idNumber.trim();
     }
 
-    // Add department if provided (for students and faculty)
-    if (department) {
-      userObj.department = department.trim();
-    }
-
     // Add structured academic fields if provided
     if (course) {
       userObj.course = course.trim();
+      // Auto-populate department from course code
+      const autoDepartment = COURSE_TO_DEPARTMENT[course.trim()];
+      if (autoDepartment) {
+        userObj.department = autoDepartment;
+      } else if (department) {
+        // Fallback to provided department if course not in mapping
+        userObj.department = department.trim();
+      }
+    } else if (department) {
+      // If no course but department provided (e.g., faculty/staff)
+      userObj.department = department.trim();
     }
     if (yearLevel) {
       userObj.yearLevel = parseInt(yearLevel);
