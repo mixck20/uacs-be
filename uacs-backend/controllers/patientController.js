@@ -129,7 +129,28 @@ exports.createPatient = async (req, res) => {
     
     res.status(201).json(newPatient);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    // Handle duplicate key error specifically
+    if (error.code === 11000 || error.name === 'MongoServerError') {
+      if (error.message.includes('studentId')) {
+        return res.status(400).json({ 
+          message: 'Student ID already exists or database index error. Please try again or leave Student ID empty.',
+          error: 'DUPLICATE_STUDENT_ID'
+        });
+      }
+      if (error.message.includes('email')) {
+        return res.status(400).json({ 
+          message: 'A patient with this email already exists.',
+          error: 'DUPLICATE_EMAIL'
+        });
+      }
+      return res.status(400).json({ 
+        message: 'Duplicate record detected. Please check your input.',
+        error: 'DUPLICATE_KEY'
+      });
+    }
+    
+    console.error('Create patient error:', error);
+    res.status(400).json({ message: error.message || 'Failed to create patient' });
   }
 };
 
