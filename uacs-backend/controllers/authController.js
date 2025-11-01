@@ -49,16 +49,10 @@ exports.register = async (req, res) => {
 
     // Check existing user
     const emailLower = email.toLowerCase();
-    const query = idNumber ? 
-      { $or: [{ email: emailLower }, { idNumber }] } : 
-      { email: emailLower };
-
-    const existingUser = await User.findOne(query);
+    const existingUser = await User.findOne({ email: emailLower });
     if (existingUser) {
       return res.status(400).json({ 
-        message: existingUser.email === emailLower ? 
-          "Email already registered" : 
-          "ID number already registered" 
+        message: "Email already registered" 
       });
     }
 
@@ -78,13 +72,17 @@ exports.register = async (req, res) => {
       gender,
       role: role.toLowerCase(),
       email: emailLower,
-      idNumber,
       password: hashedPassword,
       emailUpdates: !!emailUpdates,
       verificationToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
       isVerified: false
     };
+
+    // Add idNumber if provided (optional)
+    if (idNumber) {
+      userObj.idNumber = idNumber.trim();
+    }
 
     // Add department if provided (for students and faculty)
     if (department) {

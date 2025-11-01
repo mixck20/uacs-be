@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true 
     },
     email: { type: String, required: true, unique: true },
-    idNumber: { type: String, required: true, unique: true },
+    idNumber: { type: String, required: false, unique: true, sparse: true },
     password: { type: String, required: true },
     emailUpdates: { type: Boolean, default: false },
     isVerified: { type: Boolean, default: false },
