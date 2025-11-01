@@ -4,6 +4,7 @@ const { isAuthenticated, isClinic } = require('../middleware/auth');
 const patientController = require('../controllers/patientController');
 
 // User routes - access their own health records (must be before other routes)
+router.get('/dashboard', isAuthenticated, patientController.getUserDashboard);
 router.get('/my-records', isAuthenticated, patientController.getPatientByUserId);
 
 // Clinic staff routes - apply middleware to each route individually

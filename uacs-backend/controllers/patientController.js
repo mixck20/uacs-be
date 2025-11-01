@@ -1,6 +1,8 @@
 const Patient = require('../models/Patient');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Appointment = require('../models/Appointment');
+const MedicalCertificate = require('../models/MedicalCertificate');
 
 // Get all patients with optional filtering
 exports.getAllPatients = async (req, res) => {
@@ -533,6 +535,114 @@ exports.restorePatient = async (req, res) => {
       patient 
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get user dashboard data
+exports.getUserDashboard = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    console.log('📊 Fetching dashboard data for userId:', userId);
+
+    // Fetch patient record
+    const patient = await Patient.findOne({ userId })
+      .select('fullName email visits bloodType allergies')
+      .lean();
+
+    if (!patient) {
+      return res.status(404).json({ message: 'Patient record not found' });
+    }
+
+    // Fetch appointments (upcoming and recent past)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    const appointments = await Appointment.find({ 
+      userId,
+      date: { $gte: thirtyDaysAgo }
+    })
+      .select('date time type status notes meetLink consultationNotes')
+      .sort({ date: -1 })
+      .limit(10)
+      .lean();
+
+    // Fetch medical certificates
+    const certificates = await MedicalCertificate.find({ userId })
+      .select('purpose status createdAt certificateNumber dateIssued')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    // Fetch notifications
+    const notifications = await Notification.find({ userId })
+      .select('type title message read createdAt data')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Calculate stats
+    const stats = {
+      totalVisits: patient.visits?.length || 0,
+      upcomingAppointments: appointments.filter(apt => 
+        new Date(apt.date) >= now && apt.status !== 'Completed' && apt.status !== 'Cancelled'
+      ).length,
+      pendingCertificates: certificates.filter(cert => cert.status === 'pending').length,
+      unreadNotifications: notifications.filter(n => !n.read).length
+    };
+
+    // Get recent visits (last 3)
+    const recentVisits = patient.visits
+      ?.sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 3)
+      .map(visit => ({
+        date: visit.date,
+        diagnosis: visit.diagnosis,
+        physician: visit.physician,
+        prescriptions: visit.prescriptions
+      })) || [];
+
+    // Prepare response
+    const dashboardData = {
+      user: {
+        fullName: patient.fullName,
+        email: patient.email,
+        bloodType: patient.bloodType,
+        allergies: patient.allergies
+      },
+      stats,
+      appointments: appointments.map(apt => ({
+        _id: apt._id,
+        date: apt.date,
+        time: apt.time,
+        type: apt.type,
+        status: apt.status,
+        meetLink: apt.meetLink
+      })),
+      recentVisits,
+      certificates: certificates.map(cert => ({
+        _id: cert._id,
+        purpose: cert.purpose,
+        status: cert.status,
+        requestedAt: cert.createdAt,
+        certificateNumber: cert.certificateNumber,
+        dateIssued: cert.dateIssued
+      })),
+      notifications: notifications.map(notif => ({
+        _id: notif._id,
+        type: notif.type,
+        title: notif.title,
+        message: notif.message,
+        read: notif.read,
+        createdAt: notif.createdAt
+      }))
+    };
+
+    console.log(`✅ Dashboard data fetched: ${stats.totalVisits} visits, ${stats.upcomingAppointments} upcoming appointments`);
+    res.json(dashboardData);
+
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
     res.status(500).json({ message: error.message });
   }
 };
