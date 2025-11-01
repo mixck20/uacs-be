@@ -19,7 +19,7 @@ exports.getAllAppointments = async (req, res) => {
         id: apt._id,
         patientId: apt.userId?._id || apt.patientId?._id,
         patientName: apt.userId ? apt.userId.name : (apt.patientId ? apt.patientId.name : 'N/A'),
-        user: apt.userId ? {
+        user: apt.userId && apt.userId._id ? {
           _id: apt.userId._id,
           name: apt.userId.name,
           email: apt.userId.email,
@@ -250,7 +250,7 @@ exports.updateAppointment = async (req, res) => {
           message = `Your ${appointment.type} appointment on ${appointment.date} has been completed. Thank you for visiting!`;
         }
 
-        if (notificationType) {
+        if (notificationType && appointment.userId && appointment.userId._id) {
           await createNotification(
             appointment.userId._id,
             notificationType,
@@ -345,7 +345,7 @@ exports.cancelAppointment = async (req, res) => {
     }
 
     // Check if user has permission to cancel
-    const isOwner = appointment.userId._id.toString() === userId;
+    const isOwner = appointment.userId && appointment.userId._id && appointment.userId._id.toString() === userId;
     const isStaff = req.user.role === 'admin' || req.user.role === 'staff';
     
     if (!isOwner && !isStaff) {
@@ -385,16 +385,18 @@ exports.cancelAppointment = async (req, res) => {
     }
 
     // Send notification
-    await createNotification(
-      appointment.userId._id,
-      'appointment_cancelled',
-      'Appointment Cancelled',
-      `Your ${appointment.type} appointment on ${appointment.date.toLocaleDateString()} has been cancelled. ${reason ? 'Reason: ' + reason : ''}`,
-      {
-        appointmentId: appointment._id,
-        cancelledBy: isStaff ? 'clinic' : 'you'
-      }
-    );
+    if (appointment.userId && appointment.userId._id) {
+      await createNotification(
+        appointment.userId._id,
+        'appointment_cancelled',
+        'Appointment Cancelled',
+        `Your ${appointment.type} appointment on ${appointment.date.toLocaleDateString()} has been cancelled. ${reason ? 'Reason: ' + reason : ''}`,
+        {
+          appointmentId: appointment._id,
+          cancelledBy: isStaff ? 'clinic' : 'you'
+        }
+      );
+    }
 
     res.json({ message: 'Appointment cancelled successfully', appointment });
   } catch (error) {
@@ -535,17 +537,19 @@ exports.respondToReschedule = async (req, res) => {
     await appointment.save();
 
     // Notify patient
-    await createNotification(
-      appointment.userId._id,
-      action === 'approve' ? 'reschedule_approved' : 'reschedule_rejected',
-      action === 'approve' ? 'Reschedule Approved' : 'Reschedule Rejected',
-      action === 'approve' 
-        ? `Your reschedule request has been approved. New appointment: ${request.newDate.toLocaleDateString()} at ${request.newTime}`
-        : `Your reschedule request has been rejected. ${note || ''}`,
-      {
-        appointmentId: appointment._id
-      }
-    );
+    if (appointment.userId && appointment.userId._id) {
+      await createNotification(
+        appointment.userId._id,
+        action === 'approve' ? 'reschedule_approved' : 'reschedule_rejected',
+        action === 'approve' ? 'Reschedule Approved' : 'Reschedule Rejected',
+        action === 'approve' 
+          ? `Your reschedule request has been approved. New appointment: ${request.newDate.toLocaleDateString()} at ${request.newTime}`
+          : `Your reschedule request has been rejected. ${note || ''}`,
+        {
+          appointmentId: appointment._id
+        }
+      );
+    }
 
     res.json({ message: `Reschedule request ${action}d`, appointment });
   } catch (error) {

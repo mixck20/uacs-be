@@ -109,16 +109,18 @@ exports.issueCertificate = async (req, res) => {
     await certificate.save();
 
     // Send notification to user
-    await Notification.create({
-      userId: certificate.userId._id,
-      type: 'general',
-      title: 'Medical Certificate Ready',
-      message: 'Your medical certificate has been issued and is ready for download.',
-      data: {
-        certificateId: certificate._id,
-        certificateNumber: certificate.certificateNumber
-      }
-    });
+    if (certificate.userId && certificate.userId._id) {
+      await Notification.create({
+        userId: certificate.userId._id,
+        type: 'general',
+        title: 'Medical Certificate Ready',
+        message: 'Your medical certificate has been issued and is ready for download.',
+        data: {
+          certificateId: certificate._id,
+          certificateNumber: certificate.certificateNumber
+        }
+      });
+    }
 
     res.json({
       message: 'Certificate issued successfully',
@@ -148,15 +150,17 @@ exports.rejectCertificate = async (req, res) => {
     await certificate.save();
 
     // Send notification to user
-    await Notification.create({
-      userId: certificate.userId._id,
-      type: 'general',
-      title: 'Medical Certificate Request Rejected',
-      message: `Your medical certificate request has been rejected. Reason: ${rejectionReason}`,
-      data: {
-        certificateId: certificate._id
-      }
-    });
+    if (certificate.userId && certificate.userId._id) {
+      await Notification.create({
+        userId: certificate.userId._id,
+        type: 'general',
+        title: 'Medical Certificate Request Rejected',
+        message: `Your medical certificate request has been rejected. Reason: ${rejectionReason}`,
+        data: {
+          certificateId: certificate._id
+        }
+      });
+    }
 
     res.json({
       message: 'Certificate request rejected',

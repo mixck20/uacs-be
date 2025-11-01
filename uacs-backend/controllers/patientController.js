@@ -357,7 +357,7 @@ exports.addVisitRecord = async (req, res) => {
     }
     
     // Send notification to user if patient is linked to a user account
-    if (patient.userId) {
+    if (patient.userId && patient.userId._id) {
       try {
         await Notification.create({
           userId: patient.userId._id,
@@ -369,7 +369,7 @@ exports.addVisitRecord = async (req, res) => {
             visitDate: visitData.date
           }
         });
-        console.log(`✅ Notification sent to user ${patient.userId.email} for new health record`);
+        console.log(`✅ Notification sent to user ${patient.userId.email || 'unknown'} for new health record`);
       } catch (notifError) {
         console.error('❌ Failed to send notification:', notifError.message);
         // Don't fail the request if notification fails

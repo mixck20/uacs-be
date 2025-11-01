@@ -65,7 +65,7 @@ exports.sendMessage = async (req, res) => {
     }
 
     const isClinic = req.user.role === 'admin' || req.user.role === 'staff' || req.user.role === 'clinic_staff';
-    const isPatient = appointment.userId._id.toString() === userId;
+    const isPatient = appointment.userId && appointment.userId._id && appointment.userId._id.toString() === userId;
 
     if (!isClinic && !isPatient) {
       return res.status(403).json({ message: 'Access denied' });
@@ -74,7 +74,7 @@ exports.sendMessage = async (req, res) => {
     let chat = await Chat.findOne({ appointmentId });
 
     // Create chat if it doesn't exist
-    if (!chat) {
+    if (!chat && appointment.userId && appointment.userId._id) {
       chat = new Chat({
         appointmentId,
         userId: appointment.userId._id,
@@ -84,7 +84,7 @@ exports.sendMessage = async (req, res) => {
 
     const message = {
       sender: isClinic ? 'clinic' : 'user',
-      senderName: isClinic ? req.user.name || 'UA Clinic' : appointment.userId.name,
+      senderName: isClinic ? req.user.name || 'UA Clinic' : (appointment.userId && appointment.userId.name ? appointment.userId.name : 'Unknown'),
       text: text.trim(),
       timestamp: new Date(),
       read: false

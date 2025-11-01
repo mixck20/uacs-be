@@ -188,13 +188,15 @@ exports.respondToFeedback = async (req, res) => {
     }
 
     // Create notification for user
-    await createNotification(
-      feedback.userId._id,
-      'feedback_response',
-      'Feedback Response Received',
-      `The clinic has responded to your feedback: "${feedback.subject}"`,
-      { feedbackId: feedback._id }
-    );
+    if (feedback.userId && feedback.userId._id) {
+      await createNotification(
+        feedback.userId._id,
+        'feedback_response',
+        'Feedback Response Received',
+        `The clinic has responded to your feedback: "${feedback.subject}"`,
+        { feedbackId: feedback._id }
+      );
+    }
 
     res.json({
       message: 'Response submitted successfully',
