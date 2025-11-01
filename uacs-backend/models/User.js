@@ -6,8 +6,13 @@ const userSchema = new mongoose.Schema(
     firstName: String,
     lastName: String,
     gender: String,
-    department: { type: String }, // Department/College
-    courseYear: { type: String }, // For students only: e.g., "BSIT 3rd Year"
+    // Academic Information (Structured)
+    department: { type: String }, // Department code: CCS, COED, CBAA, etc.
+    course: { type: String }, // Course code: BSIT, BSCS, BSED, etc.
+    yearLevel: { type: Number, min: 1, max: 5 }, // 1-5
+    section: { type: String }, // Optional: A, B, C, 1, 2, etc.
+    // Legacy field for backwards compatibility (auto-generated)
+    courseYear: { type: String }, // Deprecated: Use course + yearLevel + section instead
     role: { 
       type: String, 
       enum: ["student", "faculty", "staff", "admin", "clinic_staff"],

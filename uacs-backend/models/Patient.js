@@ -108,7 +108,12 @@ const patientSchema = new mongoose.Schema({
     cellNumber: String
   },
   
-  // Academic Information
+  // Academic Information (Structured - snapshot from user account)
+  department: { type: String }, // Department code
+  course: { type: String }, // Course code
+  yearLevel: { type: Number }, // 1-5
+  section: { type: String }, // Optional section
+  // Legacy field for backwards compatibility
   courseYearSection: {
     type: String,
     required: false
