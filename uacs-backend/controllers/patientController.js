@@ -35,7 +35,7 @@ exports.getAllPatients = async (req, res) => {
     }
     
     const patients = await Patient.find(query)
-      .populate('userId', 'name email role courseYear')
+      .populate('userId', 'name email role department course yearLevel section courseYear')
       .populate('archivedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
