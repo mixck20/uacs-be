@@ -20,6 +20,7 @@ exports.register = async (req, res) => {
       lastName,
       gender,
       role,
+      department,
       courseYear,
       email,
       idNumber,
@@ -84,6 +85,11 @@ exports.register = async (req, res) => {
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
       isVerified: false
     };
+
+    // Add department if provided (for students and faculty)
+    if (department) {
+      userObj.department = department.trim();
+    }
 
     // Add courseYear if provided (for students)
     if (courseYear) {
