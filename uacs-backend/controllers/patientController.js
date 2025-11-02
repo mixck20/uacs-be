@@ -29,7 +29,10 @@ exports.getAllPatients = async (req, res) => {
     if (search) {
       query.$or = [
         { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } },
+        { department: { $regex: search, $options: 'i' } },
+        { course: { $regex: search, $options: 'i' } },
+        { yearLevel: { $regex: search, $options: 'i' } }
       ];
     }
     

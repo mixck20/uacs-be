@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const emailService = require("../utils/emailService");
 const { sendVerificationEmail } = require("../utils/emailService");
 const Patient = require("../models/Patient");
@@ -674,22 +675,7 @@ exports.changePassword = async (req, res) => {
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-password-change/${verificationToken}`;
     
     try {
-      await sendEmail({
-        to: user.email,
-        subject: 'Verify Your Password Change',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e51d5e;">Verify Your Password Change</h2>
-            <p>You requested to change your password.</p>
-            <p>Click the button below to verify and complete the password change:</p>
-            <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Password Change</a>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="color: #666; word-break: break-all;">${verificationUrl}</p>
-            <p>This link will expire in 24 hours.</p>
-            <p><strong>If you didn't request this change, please secure your account immediately.</strong></p>
-          </div>
-        `
-      });
+      await emailService.sendPasswordChangeVerification(user.email, user.name, verificationUrl);
 
       res.json({ 
         message: "Verification email sent. Please check your inbox to complete the password change.",

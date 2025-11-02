@@ -298,8 +298,40 @@ const sendLowStockAlert = async ({ itemName, currentQuantity, minQuantity, categ
   }
 };
 
+// Send password change verification email
+const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
+  const mailOptions = {
+    from: `"UA Clinic System" <${SMTP_USER}>`,
+    to: to,
+    subject: 'Verify Your Password Change',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #e51d5e;">Verify Your Password Change</h2>
+        <p>Hello ${name},</p>
+        <p>You requested to change your password.</p>
+        <p>Click the button below to verify and complete the password change:</p>
+        <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Password Change</a>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #666; word-break: break-all;">${verificationUrl}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p><strong>If you didn't request this change, please secure your account immediately.</strong></p>
+        <p>Thank you,<br>UA Clinic System</p>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Password change verification email sent to:', to);
+  } catch (error) {
+    console.error('Error sending password change verification email:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendLowStockAlert
+  sendLowStockAlert,
+  sendPasswordChangeVerification
 };
