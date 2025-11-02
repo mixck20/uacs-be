@@ -105,7 +105,7 @@ exports.createPatient = async (req, res) => {
         }
         
         await existingPatient.save();
-        await existingPatient.populate('userId', 'name email role courseYear');
+        await existingPatient.populate('userId', 'name email role department course yearLevel section courseYear');
         
         return res.status(200).json(existingPatient);
       }
@@ -136,7 +136,7 @@ exports.createPatient = async (req, res) => {
     const patient = new Patient(patientData);
     const newPatient = await patient.save();
     
-    await newPatient.populate('userId', 'name email role courseYear');
+    await newPatient.populate('userId', 'name email role department course yearLevel section courseYear');
     
     res.status(201).json(newPatient);
   } catch (error) {
@@ -162,7 +162,7 @@ exports.createPatient = async (req, res) => {
 exports.getPatient = async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id)
-      .populate('userId', 'name email role courseYear')
+      .populate('userId', 'name email role department course yearLevel section courseYear')
       .populate('visits.appointmentId')
       .populate('visits.addedBy', 'name');
       
@@ -252,7 +252,7 @@ exports.updatePatient = async (req, res) => {
     Object.assign(patient, req.body);
     const updatedPatient = await patient.save();
     
-    await updatedPatient.populate('userId', 'name email role courseYear');
+    await updatedPatient.populate('userId', 'name email role department course yearLevel section courseYear');
     
     res.json(updatedPatient);
   } catch (error) {
