@@ -329,9 +329,134 @@ const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
   }
 };
 
+// Send expiring medicine alert
+const sendExpiringMedicineAlert = async ({ itemName, expiryDate, daysUntilExpiry, currentQuantity, category, itemId }) => {
+  const User = require('../models/User');
+  
+  try {
+    // Get all clinic staff and admins
+    const recipients = await User.find({
+      role: { $in: ['admin', 'clinic', 'clinic_staff'] },
+      isVerified: true
+    }).select('email name');
+
+    if (recipients.length === 0) {
+      console.log('No clinic staff/admin to notify about expiring medicine');
+      return;
+    }
+
+    const emailList = recipients.map(r => r.email).join(', ');
+    const formattedExpiryDate = new Date(expiryDate).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    const urgencyLevel = daysUntilExpiry <= 7 ? 'URGENT' : daysUntilExpiry <= 30 ? 'WARNING' : 'NOTICE';
+    const urgencyColor = daysUntilExpiry <= 7 ? '#dc3545' : daysUntilExpiry <= 30 ? '#ffc107' : '#17a2b8';
+    
+    const mailOptions = {
+      from: {
+        name: 'UA Clinic System',
+        address: SMTP_USER
+      },
+      to: emailList,
+      subject: `⚠️ Expiring ${category} Alert: ${itemName} (${daysUntilExpiry} days)`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+          <div style="background: linear-gradient(135deg, #e51d5e 0%, #ff6b9d 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">⏰ Expiring ${category} Alert</h1>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: ${urgencyLevel === 'URGENT' ? '#f8d7da' : '#fff3cd'}; border-left: 4px solid ${urgencyColor}; padding: 15px; margin-bottom: 20px;">
+              <strong style="color: ${urgencyLevel === 'URGENT' ? '#721c24' : '#856404'};">${urgencyLevel}:</strong>
+              <p style="margin: 5px 0 0 0; color: ${urgencyLevel === 'URGENT' ? '#721c24' : '#856404'};">
+                ${daysUntilExpiry <= 7 ? 'This item is expiring very soon!' : 'This item will expire within 30 days.'}
+              </p>
+            </div>
+
+            <div style="margin: 25px 0;">
+              <h2 style="color: #e51d5e; margin-bottom: 20px; border-bottom: 2px solid #e51d5e; padding-bottom: 10px;">
+                Item Details
+              </h2>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold; width: 40%;">Item Name:</td>
+                  <td style="padding: 12px; background: white;">${itemName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Category:</td>
+                  <td style="padding: 12px; background: white;">${category}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Expiry Date:</td>
+                  <td style="padding: 12px; background: white; color: ${urgencyColor}; font-weight: bold;">
+                    ${formattedExpiryDate}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Days Until Expiry:</td>
+                  <td style="padding: 12px; background: white; color: ${urgencyColor}; font-weight: bold;">
+                    ${daysUntilExpiry} days
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Current Stock:</td>
+                  <td style="padding: 12px; background: white;">${currentQuantity}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; background: #f8f9fa; font-weight: bold;">Status:</td>
+                  <td style="padding: 12px; background: white;">
+                    <span style="background: ${urgencyColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                      ${urgencyLevel}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0;">
+              <strong style="color: #1565C0;">📋 Recommended Actions:</strong>
+              <ul style="margin: 10px 0 0 0; color: #1565C0; padding-left: 20px;">
+                <li>Review if item needs immediate use</li>
+                <li>Consider dispensing to patients with urgent need</li>
+                <li>Remove from inventory after expiry date</li>
+                <li>Plan restocking with fresh stock</li>
+                <li>${daysUntilExpiry <= 7 ? '<strong>URGENT: Take action within 7 days</strong>' : 'Monitor regularly'}</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.FRONTEND_URL || 'https://uacs-fe.vercel.app'}/inventory" 
+                 style="display: inline-block; background: #e51d5e; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                View Inventory
+              </a>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #6c757d; font-size: 14px;">
+              <p style="margin: 5px 0;">This is an automated alert from UA Clinic Inventory System</p>
+              <p style="margin: 5px 0;">Please do not reply to this email</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Expiring medicine alert sent for ${itemName} to ${recipients.length} recipient(s)`);
+    return true;
+  } catch (error) {
+    console.error('Error sending expiring medicine alert:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendLowStockAlert,
-  sendPasswordChangeVerification
+  sendPasswordChangeVerification,
+  sendExpiringMedicineAlert
 };

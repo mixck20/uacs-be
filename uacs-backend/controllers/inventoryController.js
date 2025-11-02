@@ -1,7 +1,7 @@
 const Inventory = require('../models/Inventory');
 const Patient = require('../models/Patient');
 const DispensingRecord = require('../models/DispensingRecord');
-const { sendLowStockAlert } = require('../utils/emailService');
+const { sendLowStockAlert, sendExpiringMedicineAlert } = require('../utils/emailService');
 
 exports.getAllItems = async (req, res) => {
   try {
@@ -20,6 +20,31 @@ exports.createItem = async (req, res) => {
   const item = new Inventory(req.body);
   try {
     const newItem = await item.save();
+    
+    // Check if the item is expiring soon and send alert
+    if (newItem.expiryDate && newItem.category === 'Medicine') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysUntilExpiry = Math.ceil((newItem.expiryDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 30) {
+        try {
+          await sendExpiringMedicineAlert({
+            itemName: newItem.name,
+            expiryDate: newItem.expiryDate,
+            daysUntilExpiry,
+            currentQuantity: newItem.quantity,
+            category: newItem.category,
+            itemId: newItem._id
+          });
+          console.log(`Expiring medicine alert sent for newly added item: ${newItem.name}`);
+        } catch (emailError) {
+          console.error('Failed to send expiring medicine alert:', emailError);
+          // Don't fail the creation if email fails
+        }
+      }
+    }
+    
     res.status(201).json(newItem);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -46,6 +71,31 @@ exports.updateItem = async (req, res) => {
     }
     Object.assign(item, req.body);
     const updatedItem = await item.save();
+    
+    // Check if the updated item is expiring soon and send alert
+    if (updatedItem.expiryDate && updatedItem.category === 'Medicine') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysUntilExpiry = Math.ceil((updatedItem.expiryDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 30) {
+        try {
+          await sendExpiringMedicineAlert({
+            itemName: updatedItem.name,
+            expiryDate: updatedItem.expiryDate,
+            daysUntilExpiry,
+            currentQuantity: updatedItem.quantity,
+            category: updatedItem.category,
+            itemId: updatedItem._id
+          });
+          console.log(`Expiring medicine alert sent for updated item: ${updatedItem.name}`);
+        } catch (emailError) {
+          console.error('Failed to send expiring medicine alert:', emailError);
+          // Don't fail the update if email fails
+        }
+      }
+    }
+    
     res.json(updatedItem);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -271,6 +321,99 @@ exports.getDispensingStats = async (req, res) => {
       lowStockItems: itemStats.filter(item => item.isLowStock)
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get items expiring soon
+exports.getExpiringItems = async (req, res) => {
+  try {
+    const { days = 30 } = req.query; // Default to 30 days
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + parseInt(days));
+    futureDate.setHours(23, 59, 59, 999);
+
+    // Find items with expiry date between today and future date
+    const expiringItems = await Inventory.find({
+      expiryDate: {
+        $gte: today,
+        $lte: futureDate
+      }
+    }).sort({ expiryDate: 1 }); // Sort by expiry date ascending
+
+    // Calculate days until expiry for each item
+    const itemsWithDays = expiringItems.map(item => {
+      const daysUntilExpiry = Math.ceil((item.expiryDate - today) / (1000 * 60 * 60 * 24));
+      return {
+        ...item.toObject(),
+        daysUntilExpiry,
+        urgencyLevel: daysUntilExpiry <= 7 ? 'urgent' : daysUntilExpiry <= 30 ? 'warning' : 'notice'
+      };
+    });
+
+    res.json({
+      total: itemsWithDays.length,
+      items: itemsWithDays
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Check and send expiring medicine alerts
+exports.checkExpiringMedicines = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check for items expiring within 30 days
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+    
+    const expiringItems = await Inventory.find({
+      expiryDate: {
+        $gte: today,
+        $lte: futureDate
+      },
+      category: 'Medicine' // Only check medicines
+    }).sort({ expiryDate: 1 });
+
+    let emailsSent = 0;
+    const errors = [];
+
+    for (const item of expiringItems) {
+      const daysUntilExpiry = Math.ceil((item.expiryDate - today) / (1000 * 60 * 60 * 24));
+      
+      // Send email for items expiring within 30 days, 7 days, or 1 day
+      if (daysUntilExpiry <= 30) {
+        try {
+          await sendExpiringMedicineAlert({
+            itemName: item.name,
+            expiryDate: item.expiryDate,
+            daysUntilExpiry,
+            currentQuantity: item.quantity,
+            category: item.category,
+            itemId: item._id
+          });
+          emailsSent++;
+        } catch (emailError) {
+          console.error(`Failed to send alert for ${item.name}:`, emailError);
+          errors.push({ item: item.name, error: emailError.message });
+        }
+      }
+    }
+
+    res.json({
+      message: 'Expiring medicine check completed',
+      totalExpiringItems: expiringItems.length,
+      emailsSent,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error checking expiring medicines:', error);
     res.status(500).json({ message: error.message });
   }
 };

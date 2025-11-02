@@ -21,4 +21,8 @@ router.get('/dispensing/history/:itemId', inventoryController.getDispensingHisto
 router.get('/dispensing/records', inventoryController.getAllDispensingRecords);
 router.get('/dispensing/stats', inventoryController.getDispensingStats);
 
+// Expiry alerts routes
+router.get('/expiring', inventoryController.getExpiringItems);
+router.post('/check-expiring', inventoryController.checkExpiringMedicines);
+
 module.exports = router;
