@@ -82,6 +82,11 @@ exports.createPatient = async (req, res) => {
         existingPatient.address = patientData.address || existingPatient.address;
         existingPatient.bloodType = patientData.bloodType || existingPatient.bloodType;
         existingPatient.courseYearSection = patientData.courseYearSection || existingPatient.courseYearSection;
+        // Academic info (for walk-ins)
+        if (patientData.course) existingPatient.course = patientData.course;
+        if (patientData.yearLevel) existingPatient.yearLevel = patientData.yearLevel;
+        if (patientData.section) existingPatient.section = patientData.section;
+        if (patientData.department) existingPatient.department = patientData.department;
         existingPatient.emergencyContact = patientData.emergencyContact || existingPatient.emergencyContact;
         
         // Restore from archive if it was archived
