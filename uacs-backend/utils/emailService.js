@@ -300,9 +300,29 @@ const sendLowStockAlert = async ({ itemName, currentQuantity, minQuantity, categ
 
 // Send password change verification email
 const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
+  console.log('=== Sending Password Change Verification Email ===');
+  console.log('To:', to);
+  console.log('Name:', name);
+  console.log('SMTP Config:', {
+    user: SMTP_USER || 'NOT SET',
+    passLength: SMTP_PASS ? SMTP_PASS.length : 0,
+    host: SMTP_HOST,
+    port: SMTP_PORT
+  });
+
   if (!SMTP_USER || !SMTP_PASS) {
-    console.error('Email service not configured properly');
-    throw new Error('Email service is not configured. Please contact support.');
+    const error = new Error('Email service is not configured on server. Missing SMTP credentials.');
+    console.error('EMAIL CONFIG ERROR:', error.message);
+    throw error;
+  }
+
+  // Verify transporter is ready
+  try {
+    await transporter.verify();
+    console.log('Transporter verified successfully');
+  } catch (verifyError) {
+    console.error('Transporter verification failed:', verifyError.message);
+    throw new Error(`Email server connection failed: ${verifyError.message}`);
   }
 
   const mailOptions = {
@@ -326,14 +346,17 @@ const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
   };
 
   try {
+    console.log('Attempting to send email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('Password change verification email sent to:', to);
+    console.log('✓ Password change verification email sent successfully');
     console.log('Message ID:', info.messageId);
+    console.log('Response:', info.response);
     return info;
   } catch (error) {
-    console.error('Error sending password change verification email to:', to);
-    console.error('Error details:', error.message);
-    if (error.code) console.error('Error code:', error.code);
+    console.error('✗ Failed to send password change verification email');
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
     throw new Error(`Failed to send verification email: ${error.message}`);
   }
 };

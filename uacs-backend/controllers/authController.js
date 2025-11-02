@@ -671,57 +671,23 @@ exports.changePassword = async (req, res) => {
     user.passwordChangeTokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     await user.save();
 
-    // For immediate password change without email verification
-    // (fallback if email service is unavailable)
-    const USE_EMAIL_VERIFICATION = process.env.USE_PASSWORD_CHANGE_EMAIL === 'true';
-    
-    if (!USE_EMAIL_VERIFICATION) {
-      // Direct password change without email verification
-      user.password = hashedNewPassword;
-      user.pendingPassword = undefined;
-      user.passwordChangeToken = undefined;
-      user.passwordChangeTokenExpiry = undefined;
-      await user.save();
-      
-      return res.json({ 
-        message: "Password changed successfully. Please login again with your new password.",
-        success: true,
-        requiresRelogin: true
-      });
-    }
-
     // Send verification email
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-password-change/${verificationToken}`;
     
-    try {
-      // Get user's name for email
-      const userName = user.name || `${user.firstName} ${user.lastName}`;
-      
-      await emailService.sendPasswordChangeVerification(user.email, userName, verificationUrl);
+    // Get user's name for email
+    const userName = user.name || `${user.firstName} ${user.lastName}`;
+    
+    console.log('Attempting to send password change verification email to:', user.email);
+    console.log('User name:', userName);
+    console.log('Verification URL:', verificationUrl);
+    
+    await emailService.sendPasswordChangeVerification(user.email, userName, verificationUrl);
 
-      res.json({ 
-        message: "Verification email sent. Please check your inbox to complete the password change.",
-        requiresVerification: true
-      });
-    } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      console.error('Email error details:', emailError.message);
-      
-      // Fallback: Apply password change directly if email fails
-      console.log('Applying password change directly due to email service failure');
-      user.password = hashedNewPassword;
-      user.pendingPassword = undefined;
-      user.passwordChangeToken = undefined;
-      user.passwordChangeTokenExpiry = undefined;
-      await user.save();
-      
-      return res.json({ 
-        message: "Password changed successfully (email service temporarily unavailable). Please login again with your new password.",
-        success: true,
-        requiresRelogin: true,
-        emailFailed: true
-      });
-    }
+    console.log('Password change verification email sent successfully');
+    res.json({ 
+      message: "Verification email sent. Please check your inbox to complete the password change.",
+      requiresVerification: true
+    });
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).json({ message: "Failed to change password" });
