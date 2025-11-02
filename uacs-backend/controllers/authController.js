@@ -701,8 +701,16 @@ exports.changePassword = async (req, res) => {
       requiresVerification: true
     });
   } catch (err) {
-    console.error('Change password error:', err);
-    res.status(500).json({ message: "Failed to change password" });
+    console.error('=== Change Password Error ===');
+    console.error('Error message:', err.message);
+    console.error('Error stack:', err.stack);
+    console.error('Error name:', err.name);
+    
+    // Return the actual error message for debugging
+    res.status(500).json({ 
+      message: err.message || "Failed to change password",
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
