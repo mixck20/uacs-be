@@ -5,6 +5,7 @@ const TimeSlot = require('../models/TimeSlot');
 const { createMeetLink, deleteMeetLink, updateMeetLink } = require('../utils/googleMeetService');
 const { createNotification } = require('./notificationController');
 const { validateAppointmentData, sanitizeString } = require('../utils/validation');
+const { createAuditLog } = require('../middleware/auditLogger');
 
 exports.getAllAppointments = async (req, res) => {
   try {
@@ -151,6 +152,17 @@ exports.createAppointment = async (req, res) => {
     
     await newAppointment.populate('userId', 'name email');
     
+    // Log appointment creation
+    await createAuditLog({
+      user: req.user,
+      action: 'CREATE',
+      resource: 'Appointment',
+      resourceId: newAppointment._id.toString(),
+      description: `Created appointment: ${newAppointment.type} on ${newAppointment.date}`,
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.status(201).json(newAppointment);
   } catch (error) {
     console.error('Create appointment error:', error);
@@ -275,6 +287,18 @@ exports.updateAppointment = async (req, res) => {
       }
     }
     
+    // Log appointment update
+    await createAuditLog({
+      user: req.user,
+      action: 'UPDATE',
+      resource: 'Appointment',
+      resourceId: updatedAppointment._id.toString(),
+      description: `Updated appointment: ${updatedAppointment.type} - Status: ${oldStatus} → ${newStatus || oldStatus}`,
+      changes: { updates: req.body },
+      req,
+      status: 'SUCCESS'
+    });
+    
     // Return the Meet link in the response
     res.json({
       ...updatedAppointment.toObject(),
@@ -292,7 +316,28 @@ exports.deleteAppointment = async (req, res) => {
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
+    
+    const appointmentInfo = {
+      id: appointment._id.toString(),
+      type: appointment.type,
+      date: appointment.date,
+      time: appointment.time,
+      status: appointment.status
+    };
+    
     await appointment.deleteOne();
+    
+    // Log appointment deletion
+    await createAuditLog({
+      user: req.user,
+      action: 'DELETE',
+      resource: 'Appointment',
+      resourceId: appointmentInfo.id,
+      description: `Deleted appointment: ${appointmentInfo.type} on ${appointmentInfo.date} at ${appointmentInfo.time} (Status: ${appointmentInfo.status})`,
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.json({ message: 'Appointment deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });

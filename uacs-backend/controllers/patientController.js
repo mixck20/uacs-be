@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Appointment = require('../models/Appointment');
 const MedicalCertificate = require('../models/MedicalCertificate');
+const { createAuditLog } = require('../middleware/auditLogger');
 
 // Get all patients with optional filtering
 exports.getAllPatients = async (req, res) => {
@@ -141,6 +142,17 @@ exports.createPatient = async (req, res) => {
     
     await newPatient.populate('userId', 'name email role department course yearLevel section courseYear');
     
+    // Log patient creation
+    await createAuditLog({
+      user: req.user,
+      action: 'CREATE',
+      resource: 'Patient',
+      resourceId: newPatient._id.toString(),
+      description: `Created patient record: ${newPatient.fullName || newPatient.email}`,
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.status(201).json(newPatient);
   } catch (error) {
     // Handle duplicate key error specifically
@@ -256,6 +268,18 @@ exports.updatePatient = async (req, res) => {
     const updatedPatient = await patient.save();
     
     await updatedPatient.populate('userId', 'name email role department course yearLevel section courseYear');
+    
+    // Log patient update
+    await createAuditLog({
+      user: req.user,
+      action: 'UPDATE',
+      resource: 'Patient',
+      resourceId: updatedPatient._id.toString(),
+      description: `Updated patient record: ${updatedPatient.fullName || updatedPatient.email}`,
+      changes: Object.keys(changes).length > 0 ? { updates: changes } : null,
+      req,
+      status: 'SUCCESS'
+    });
     
     res.json(updatedPatient);
   } catch (error) {
@@ -394,7 +418,26 @@ exports.deletePatient = async (req, res) => {
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
+    
+    const patientInfo = { 
+      name: patient.fullName || patient.email, 
+      email: patient.email,
+      id: patient._id.toString()
+    };
+    
     await patient.deleteOne();
+    
+    // Log patient deletion
+    await createAuditLog({
+      user: req.user,
+      action: 'DELETE',
+      resource: 'Patient',
+      resourceId: patientInfo.id,
+      description: `Deleted patient record: ${patientInfo.name} (${patientInfo.email})`,
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.json({ message: 'Patient deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });

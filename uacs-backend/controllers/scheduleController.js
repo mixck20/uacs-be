@@ -1,4 +1,5 @@
 const Schedule = require('../models/Schedule');
+const { createAuditLog } = require('../middleware/auditLogger');
 
 // Get the current schedule
 exports.getSchedule = async (req, res) => {
@@ -71,6 +72,16 @@ exports.addStaffSchedule = async (req, res) => {
     
     await schedule.save();
     await schedule.populate('updatedBy', 'name email');
+    
+    await createAuditLog({
+      user: req.user,
+      action: 'CREATE',
+      resource: 'Schedule',
+      resourceId: schedule._id.toString(),
+      description: `Added ${role} schedule: ${name}`,
+      req,
+      status: 'SUCCESS'
+    });
     
     res.json({ message: 'Staff schedule added successfully', schedule });
   } catch (error) {

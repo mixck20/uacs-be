@@ -2,6 +2,7 @@ const Inventory = require('../models/Inventory');
 const Patient = require('../models/Patient');
 const DispensingRecord = require('../models/DispensingRecord');
 const { sendLowStockAlert, sendExpiringMedicineAlert } = require('../utils/emailService');
+const { createAuditLog } = require('../middleware/auditLogger');
 
 exports.getAllItems = async (req, res) => {
   try {
@@ -44,6 +45,17 @@ exports.createItem = async (req, res) => {
         }
       }
     }
+    
+    // Log inventory item creation
+    await createAuditLog({
+      user: req.user,
+      action: 'CREATE',
+      resource: 'Inventory',
+      resourceId: newItem._id.toString(),
+      description: `Created inventory item: ${newItem.name} (${newItem.category}, Qty: ${newItem.quantity})`,
+      req,
+      status: 'SUCCESS'
+    });
     
     res.status(201).json(newItem);
   } catch (error) {
@@ -96,6 +108,18 @@ exports.updateItem = async (req, res) => {
       }
     }
     
+    // Log inventory item update
+    await createAuditLog({
+      user: req.user,
+      action: 'UPDATE',
+      resource: 'Inventory',
+      resourceId: updatedItem._id.toString(),
+      description: `Updated inventory item: ${updatedItem.name} (${updatedItem.category}, Qty: ${updatedItem.quantity})`,
+      changes: { updates: req.body },
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.json(updatedItem);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -108,7 +132,27 @@ exports.deleteItem = async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Item not found' });
     }
+    
+    const itemInfo = {
+      id: item._id.toString(),
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity
+    };
+    
     await item.deleteOne();
+    
+    // Log inventory item deletion
+    await createAuditLog({
+      user: req.user,
+      action: 'DELETE',
+      resource: 'Inventory',
+      resourceId: itemInfo.id,
+      description: `Deleted inventory item: ${itemInfo.name} (${itemInfo.category}, Qty: ${itemInfo.quantity})`,
+      req,
+      status: 'SUCCESS'
+    });
+    
     res.json({ message: 'Item deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -190,6 +234,18 @@ exports.dispenseItem = async (req, res) => {
         // Don't fail the dispensing if email fails
       }
     }
+
+    // Log inventory item dispensing
+    await createAuditLog({
+      user: req.user,
+      action: 'UPDATE',
+      resource: 'Inventory',
+      resourceId: item._id.toString(),
+      description: `Dispensed ${quantity} units of ${item.name} to ${patientName}${reason ? ` (${reason})` : ''}`,
+      changes: { quantityDispensed: quantity, stockAfter: item.quantity },
+      req,
+      status: 'SUCCESS'
+    });
 
     res.json({ 
       message: 'Item dispensed successfully',
