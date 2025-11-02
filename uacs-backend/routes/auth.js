@@ -19,4 +19,7 @@ router.post("/change-password", auth, authController.changePassword);
 router.post("/verify-email-change/:token", authController.verifyEmailChange);
 router.post("/verify-password-change/:token", authController.verifyPasswordChange);
 
+// Quick fix: Trigger auto-population for all users with missing departments
+router.post("/fix-departments", authController.fixDepartments);
+
 module.exports = router;

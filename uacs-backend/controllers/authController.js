@@ -765,3 +765,31 @@ exports.verifyPasswordChange = async (req, res) => {
     res.status(500).json({ message: "Failed to verify password change" });
   }
 };
+
+// Quick fix: Trigger auto-population for all users with missing departments
+exports.fixDepartments = async (req, res) => {
+  try {
+    const users = await User.find({ 
+      course: { $exists: true, $ne: null, $ne: '' },
+      $or: [
+        { department: { $exists: false } },
+        { department: null },
+        { department: '' }
+      ]
+    });
+
+    let fixed = 0;
+    for (const user of users) {
+      await user.save(); // Triggers pre-save hook
+      fixed++;
+    }
+
+    res.json({ 
+      message: `Fixed ${fixed} users with missing departments`,
+      count: fixed 
+    });
+  } catch (err) {
+    console.error('Fix departments error:', err);
+    res.status(500).json({ message: "Failed to fix departments" });
+  }
+};
