@@ -188,92 +188,104 @@ exports.generateCertificatePDF = async (req, res) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
     let yPos = 30;
+
+    // All text in black
+    doc.setTextColor(0, 0, 0);
 
     // Date at top right
     doc.setFontSize(10);
-    doc.setTextColor(60);
+    doc.setFont('helvetica', 'normal');
     const currentDate = new Date().toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     });
-    doc.text(`Date: ${currentDate}`, 20, yPos);
+    doc.text(`Date: ${currentDate}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += 25;
+
+    // Header - MEDICAL CERTIFICATE
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEDICAL CERTIFICATE', pageWidth / 2, yPos, { align: 'center' });
     yPos += 20;
 
-    // Header - Medical Certificate
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(229, 29, 94); // Pink color
-    doc.text('MEDICAL CERTIFICATE', pageWidth / 2, yPos, { align: 'center' });
-    yPos += 15;
-
     // Certificate body
-    doc.setFontSize(11);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(40);
     
-    doc.text('This is to certify that', 20, yPos);
-    yPos += 8;
+    // "This is to certify that"
+    doc.text('This is to certify that', margin, yPos);
+    yPos += 10;
     
     // Patient name with underline
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
     const patientName = certificate.patientId.fullName || 'N/A';
-    doc.text(patientName, 20, yPos);
+    const nameWidth = doc.getTextWidth(patientName);
+    const nameX = (pageWidth - nameWidth) / 2;
+    doc.text(patientName, nameX, yPos);
     doc.setLineWidth(0.5);
-    doc.line(20, yPos + 2, pageWidth - 20, yPos + 2);
+    doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
     yPos += 12;
 
+    // "was seen and examined..."
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.text('Was seen and examined at the college clinic due to:', 20, yPos);
-    yPos += 8;
+    doc.text('was seen and examined at the college clinic and is advised to:', margin, yPos);
+    yPos += 10;
 
-    // Reason - from purpose
-    const reason = certificate.purpose || 'Medical consultation';
-    doc.text(reason, 20, yPos);
-    doc.line(20, yPos + 2, pageWidth - 20, yPos + 2);
-    yPos += 12;
-
-    // Diagnosis
-    doc.text('Diagnosis:', 20, yPos);
+    // Diagnosis section
+    doc.setFont('helvetica', 'bold');
+    doc.text('Diagnosis:', margin, yPos);
     yPos += 8;
+    doc.setFont('helvetica', 'normal');
     const diagnosis = certificate.diagnosis || 'N/A';
-    doc.text(diagnosis, 20, yPos);
-    doc.line(20, yPos + 2, pageWidth - 20, yPos + 2);
+    const splitDiag = doc.splitTextToSize(diagnosis, pageWidth - (margin * 2));
+    doc.text(splitDiag, margin, yPos);
+    yPos += (splitDiag.length * 6) + 2;
+    doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 12;
 
-    // Recommendations
-    doc.text('Recommendations:', 20, yPos);
+    // Recommendations section
+    doc.setFont('helvetica', 'bold');
+    doc.text('Recommendations:', margin, yPos);
     yPos += 8;
+    doc.setFont('helvetica', 'normal');
     const recommendations = certificate.recommendations || 'Rest and recovery';
-    const splitRecs = doc.splitTextToSize(recommendations, pageWidth - 40);
-    doc.text(splitRecs, 20, yPos);
+    const splitRecs = doc.splitTextToSize(recommendations, pageWidth - (margin * 2));
+    doc.text(splitRecs, margin, yPos);
     yPos += (splitRecs.length * 6) + 2;
-    doc.line(20, yPos, pageWidth - 20, yPos);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 20;
+
+    // Full underline for additional notes/remarks (optional section)
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 8;
+    doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 25;
 
-    // Signature section
-    doc.setFont('helvetica', 'normal');
-    doc.text('_____________________________', pageWidth / 2 + 20, yPos, { align: 'center' });
+    // Signature section - aligned to right
+    const sigStartX = pageWidth - margin - 60;
+    doc.line(sigStartX, yPos, pageWidth - margin, yPos);
     yPos += 6;
     doc.setFont('helvetica', 'bold');
-    doc.text('University Physician', pageWidth / 2 + 20, yPos, { align: 'center' });
-    yPos += 8;
+    doc.setFontSize(11);
+    doc.text('University Physician', pageWidth - margin, yPos, { align: 'right' });
+    yPos += 6;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('License no. __________________', pageWidth / 2 + 20, yPos, { align: 'center' });
-    yPos += 5;
-    doc.text('PTR no. __________________', pageWidth / 2 + 20, yPos, { align: 'center' });
-    yPos += 15;
+    doc.setFontSize(10);
+    doc.text('License No. _______________', pageWidth - margin, yPos, { align: 'right' });
+    yPos += 6;
+    doc.text('PTR No. _______________', pageWidth - margin, yPos, { align: 'right' });
 
     // Footer
     doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text('University of the Assumption - UA Clinic System', pageWidth / 2, pageHeight - 20, { align: 'center' });
+    doc.setTextColor(80, 80, 80);
+    doc.text('University of the Assumption - College Clinic', pageWidth / 2, pageHeight - 20, { align: 'center' });
     doc.text(`Certificate No: ${certificate.certificateNumber}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
-    doc.text(`Issued: ${new Date(certificate.issuedAt).toLocaleDateString()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text(`Issued: ${new Date(certificate.dateIssued || certificate.issuedAt).toLocaleDateString()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
     // Send PDF
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
