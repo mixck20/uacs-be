@@ -219,12 +219,10 @@ exports.generateCertificatePDF = async (req, res) => {
     doc.text('This is to certify that', margin, yPos);
     yPos += 10;
     
-    // Patient name with underline
+    // Patient name with underline (left-aligned)
     doc.setFont('helvetica', 'bold');
     const patientName = certificate.patientId.fullName || 'N/A';
-    const nameWidth = doc.getTextWidth(patientName);
-    const nameX = (pageWidth - nameWidth) / 2;
-    doc.text(patientName, nameX, yPos);
+    doc.text(patientName, margin, yPos);
     doc.setLineWidth(0.5);
     doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
     yPos += 12;
@@ -232,7 +230,7 @@ exports.generateCertificatePDF = async (req, res) => {
     // "was seen and examined..."
     doc.setFont('helvetica', 'normal');
     doc.text('was seen and examined at the college clinic and is advised to:', margin, yPos);
-    yPos += 10;
+    yPos += 15;
 
     // Diagnosis section
     doc.setFont('helvetica', 'bold');
@@ -242,9 +240,7 @@ exports.generateCertificatePDF = async (req, res) => {
     const diagnosis = certificate.diagnosis || 'N/A';
     const splitDiag = doc.splitTextToSize(diagnosis, pageWidth - (margin * 2));
     doc.text(splitDiag, margin, yPos);
-    yPos += (splitDiag.length * 6) + 2;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 12;
+    yPos += (splitDiag.length * 6) + 10;
 
     // Recommendations section
     doc.setFont('helvetica', 'bold');
@@ -254,15 +250,13 @@ exports.generateCertificatePDF = async (req, res) => {
     const recommendations = certificate.recommendations || 'Rest and recovery';
     const splitRecs = doc.splitTextToSize(recommendations, pageWidth - (margin * 2));
     doc.text(splitRecs, margin, yPos);
-    yPos += (splitRecs.length * 6) + 2;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 20;
+    yPos += (splitRecs.length * 6) + 20;
 
-    // Full underline for additional notes/remarks (optional section)
+    // Blank lines for additional notes
     doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 8;
+    yPos += 10;
     doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 8;
+    yPos += 10;
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 25;
 
