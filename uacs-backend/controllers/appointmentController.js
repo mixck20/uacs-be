@@ -116,7 +116,6 @@ exports.createAppointment = async (req, res) => {
             fullName: user.name,
             email: user.email,
             gender: user.gender || 'Other',
-            studentId: user.idNumber,
             isRegisteredUser: true
           });
           

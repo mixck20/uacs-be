@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { isAuthenticated, isClinic } = require('../middleware/auth');
 const patientController = require('../controllers/patientController');
-const fixController = require('../controllers/fixController');
 
 // User routes - access their own health records (must be before other routes)
 router.get('/dashboard', isAuthenticated, patientController.getUserDashboard);
@@ -30,8 +29,5 @@ router.post('/link-account', isAuthenticated, isClinic, patientController.linkPa
 
 // Search unlinked patients
 router.get('/search/unlinked', isAuthenticated, isClinic, patientController.searchUnlinkedPatients);
-
-// One-time fix endpoint for studentId nulls
-router.get('/fix-student-ids', isAuthenticated, isClinic, fixController.fixStudentIdNulls);
 
 module.exports = router;

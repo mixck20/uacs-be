@@ -69,7 +69,7 @@ exports.getAllCertificates = async (req, res) => {
 
     const certificates = await MedicalCertificate.find(query)
       .populate('userId', 'name email')
-      .populate('patientId', 'fullName studentId')
+      .populate('patientId', 'fullName')
       .populate('issuedBy', 'name')
       .sort({ createdAt: -1 });
 
@@ -92,7 +92,7 @@ exports.issueCertificate = async (req, res) => {
 
     const certificate = await MedicalCertificate.findById(id)
       .populate('userId', 'name email')
-      .populate('patientId', 'fullName studentId dateOfBirth gender');
+      .populate('patientId', 'fullName dateOfBirth gender');
 
     if (!certificate) {
       return res.status(404).json({ message: 'Certificate not found' });
@@ -177,7 +177,7 @@ exports.generateCertificatePDF = async (req, res) => {
     const { id } = req.params;
     const certificate = await MedicalCertificate.findById(id)
       .populate('userId', 'name')
-      .populate('patientId', 'fullName studentId dateOfBirth gender')
+      .populate('patientId', 'fullName dateOfBirth gender')
       .populate('issuedBy', 'name');
 
     if (!certificate || certificate.status !== 'issued') {

@@ -24,12 +24,6 @@ const patientSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  studentId: {
-    type: String,
-    required: false,
-    unique: true,
-    sparse: true
-  },
   email: {
     type: String,
     required: true,
@@ -228,35 +222,24 @@ patientSchema.pre('save', function(next) {
     this.email = this.email.toLowerCase().trim();
   }
   
-  // CRITICAL: Convert empty string studentId to null for sparse unique index
-  if (this.studentId === '' || this.studentId === undefined) {
-    this.studentId = null;
-  }
-  
   next();
 });
 
 // Create case-insensitive index for email lookups
 patientSchema.index({ email: 1 });
 
-// Auto-fix the studentId index on app startup
+// Auto-fix: Drop old studentId index on app startup
 const Patient = mongoose.model('Patient', patientSchema);
 
-// Fix studentId index to be sparse (allows multiple null values)
+// Drop old studentId index (field no longer exists)
 Patient.collection.dropIndex('studentId_1').then(() => {
   console.log('✅ Dropped old studentId index');
-  return Patient.collection.createIndex(
-    { studentId: 1 },
-    { unique: true, sparse: true, background: true }
-  );
-}).then(() => {
-  console.log('✅ Created new sparse unique index for studentId');
 }).catch((err) => {
-  // If index doesn't exist or already sparse, that's fine
+  // If index doesn't exist, that's fine
   if (err.code === 27 || err.codeName === 'IndexNotFound') {
-    console.log('ℹ️  studentId index already correct or doesn\'t exist');
+    console.log('ℹ️  studentId index already dropped or doesn\'t exist');
   } else {
-    console.log('ℹ️  studentId index check:', err.message);
+    console.log('⚠️  studentId index drop error:', err.message);
   }
 });
 

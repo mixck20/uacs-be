@@ -29,8 +29,7 @@ exports.getAllPatients = async (req, res) => {
     if (search) {
       query.$or = [
         { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { studentId: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } }
       ];
     }
     
@@ -53,11 +52,6 @@ exports.getAllPatients = async (req, res) => {
 exports.createPatient = async (req, res) => {
   try {
     const patientData = { ...req.body };
-    
-    // Sanitize studentId: remove field if empty (for sparse unique index)
-    if (patientData.studentId === '' || patientData.studentId === undefined || patientData.studentId === null) {
-      delete patientData.studentId; // Remove field entirely, don't set to null
-    }
     
     // Check if a patient record with the same email already exists (preserve health records)
     if (req.body.email) {
@@ -133,12 +127,6 @@ exports.createPatient = async (req, res) => {
   } catch (error) {
     // Handle duplicate key error specifically
     if (error.code === 11000 || error.name === 'MongoServerError') {
-      if (error.message.includes('studentId')) {
-        return res.status(400).json({ 
-          message: 'Student ID already exists or database index error. Please try again or leave Student ID empty.',
-          error: 'DUPLICATE_STUDENT_ID'
-        });
-      }
       if (error.message.includes('email')) {
         return res.status(400).json({ 
           message: 'A patient with this email already exists.',
@@ -188,15 +176,9 @@ exports.getPatientByUserId = async (req, res) => {
       console.log('   Current userId:', userId);
       console.log('   Fixing link now...');
       
-      // Fix the link and ensure studentId is handled properly
+      // Fix the link
       patientByEmail.userId = userId;
       patientByEmail.isRegisteredUser = true;
-      
-      // Ensure studentId is not explicitly null (causes unique index issues)
-      if (patientByEmail.studentId === null) {
-        patientByEmail.studentId = undefined;
-      }
-      
       await patientByEmail.save();
       
       console.log('✅ Fixed patient-user link');
@@ -227,14 +209,9 @@ exports.updatePatient = async (req, res) => {
       return res.status(404).json({ message: 'Patient not found' });
     }
     
-    // Sanitize studentId: remove field if empty (for sparse unique index)
-    if (req.body.studentId === '' || req.body.studentId === undefined || req.body.studentId === null) {
-      delete req.body.studentId; // Remove field entirely, don't set to null
-    }
-    
     // Track changes for edit history
     const changes = {};
-    const fieldsToTrack = ['fullName', 'surname', 'firstName', 'middleName', 'email', 'studentId', 
+    const fieldsToTrack = ['fullName', 'surname', 'firstName', 'middleName', 'email', 
                            'contactNumber', 'cellNumber', 'dateOfBirth', 'gender', 'address', 
                            'bloodType', 'courseYearSection', 'emergencyContact'];
     
@@ -322,7 +299,6 @@ exports.addVisitRecord = async (req, res) => {
           item.dispensingHistory.push({
             patientId: patient._id,
             patientName: patient.fullName,
-            studentId: patient.studentId || null,
             quantity: med.quantity,
             dispensedBy: req.user.id,
             reason: visitData.diagnosis || 'Walk-in visit',
@@ -461,7 +437,7 @@ exports.searchUnlinkedPatients = async (req, res) => {
     const patients = await Patient.find({
       email: { $regex: email, $options: 'i' },
       userId: null
-    }).select('fullName email studentId dateOfBirth createdAt visits');
+    }).select('fullName email dateOfBirth createdAt visits');
     
     res.json(patients);
   } catch (error) {

@@ -39,7 +39,6 @@ const inventorySchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Patient'
     },
-    studentId: String,
     quantity: {
       type: Number,
       required: true
