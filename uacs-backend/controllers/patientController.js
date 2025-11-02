@@ -342,8 +342,9 @@ exports.addVisitRecord = async (req, res) => {
           
           // Deduct from inventory
           item.quantity -= med.quantity;
+          const stockAfterDispensing = item.quantity;
           
-          // Add to dispensing history
+          // Add to dispensing history (kept for backward compatibility)
           item.dispensingHistory.push({
             patientId: patient._id,
             patientName: patient.fullName,
@@ -354,6 +355,23 @@ exports.addVisitRecord = async (req, res) => {
           });
           
           await item.save();
+          
+          // Create permanent dispensing record in separate collection
+          const DispensingRecord = require('../models/DispensingRecord');
+          const dispensingRecord = new DispensingRecord({
+            itemId: item._id,
+            itemName: item.name,
+            itemCategory: item.category,
+            patientName: patient.fullName,
+            patientId: patient._id,
+            quantity: med.quantity,
+            dispensedBy: req.user.id,
+            reason: visitData.diagnosis || 'Walk-in visit',
+            notes: `Prescribed during visit on ${visitData.date.toLocaleDateString()}`,
+            stockAfterDispensing,
+            dispensedAt: new Date()
+          });
+          await dispensingRecord.save();
           
           dispensingResults.push({ 
             medication: med.medication, 
