@@ -188,9 +188,15 @@ exports.getPatientByUserId = async (req, res) => {
       console.log('   Current userId:', userId);
       console.log('   Fixing link now...');
       
-      // Fix the link
+      // Fix the link and ensure studentId is handled properly
       patientByEmail.userId = userId;
       patientByEmail.isRegisteredUser = true;
+      
+      // Ensure studentId is not explicitly null (causes unique index issues)
+      if (patientByEmail.studentId === null) {
+        patientByEmail.studentId = undefined;
+      }
+      
       await patientByEmail.save();
       
       console.log('✅ Fixed patient-user link');
