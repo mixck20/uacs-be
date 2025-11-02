@@ -35,9 +35,10 @@ exports.getAllPatients = async (req, res) => {
         { course: { $regex: search, $options: 'i' } }
       ];
       
-      // Only add yearLevel to search if search term is numeric or string
-      if (search) {
-        searchQuery.push({ yearLevel: { $regex: search.toString(), $options: 'i' } });
+      // Handle yearLevel numeric search (yearLevel is a Number type)
+      const yearLevelNum = parseInt(search);
+      if (!isNaN(yearLevelNum)) {
+        searchQuery.push({ yearLevel: yearLevelNum });
       }
       
       query.$or = searchQuery;

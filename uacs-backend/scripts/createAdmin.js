@@ -12,13 +12,13 @@ const createAdmin = async () => {
     // Admin data
     const adminData = {
       firstName: 'Admin',
-      lastName: 'User',
-      name: 'Admin User',
-      email: 'admin@ua.edu.ph',
+      lastName: 'System',
+      name: 'Admin System',
+      email: 'uaclinicsystem2@gmail.com',
       password: 'admin123',  // This will be hashed
       role: 'admin',
       gender: 'Male',
-      idNumber: 'ADMIN001',  // Added ID number
+      idNumber: 'ADMIN002',  // Added ID number
       isVerified: true,  // Admin is automatically verified
       emailUpdates: true
     };
@@ -26,7 +26,7 @@ const createAdmin = async () => {
     // Check if admin already exists
     const existingAdmin = await User.findOne({ email: adminData.email });
     if (existingAdmin) {
-      console.log('Admin account already exists');
+      console.log('Admin account already exists with email:', adminData.email);
       process.exit(0);
     }
 
