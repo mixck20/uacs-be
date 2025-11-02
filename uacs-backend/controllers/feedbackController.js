@@ -31,18 +31,7 @@ exports.submitFeedback = async (req, res) => {
     // Get user info for notification
     const user = await User.findById(userId);
 
-    // Create notification for clinic staff (we'll send to all clinic staff)
-    const clinicStaff = await User.find({ role: { $in: ['clinic_staff', 'admin'] } });
-    
-    for (const staff of clinicStaff) {
-      await createNotification(
-        staff._id,
-        'feedback',
-        'New Feedback Received',
-        `${user.firstName} ${user.lastName} submitted ${type} feedback: ${subject}`,
-        { feedbackId: newFeedback._id }
-      );
-    }
+    // Feedback notifications only sent to admin portal, not to clinic staff notifications
 
     res.status(201).json({
       message: 'Feedback submitted successfully',
