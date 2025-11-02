@@ -116,6 +116,11 @@ exports.createAppointment = async (req, res) => {
             fullName: user.name,
             email: user.email,
             gender: user.gender || 'Other',
+            // Copy academic info from User
+            department: user.department,
+            course: user.course,
+            yearLevel: user.yearLevel,
+            section: user.section,
             isRegisteredUser: true
           });
           

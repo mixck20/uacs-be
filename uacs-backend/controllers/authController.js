@@ -138,6 +138,12 @@ exports.register = async (req, res) => {
         existingPatient.userId = user._id;
         existingPatient.isRegisteredUser = true;
         
+        // Copy academic info from User to Patient (overwrite walk-in data with registered user data)
+        if (user.department) existingPatient.department = user.department;
+        if (user.course) existingPatient.course = user.course;
+        if (user.yearLevel) existingPatient.yearLevel = user.yearLevel;
+        if (user.section) existingPatient.section = user.section;
+        
         // Restore from archive if it was archived
         if (existingPatient.isArchived) {
           existingPatient.isArchived = false;

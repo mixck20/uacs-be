@@ -68,6 +68,11 @@ exports.createPatient = async (req, res) => {
         if (existingUser) {
           existingPatient.userId = existingUser._id;
           existingPatient.isRegisteredUser = true;
+          // Copy academic info from User to Patient (sync data)
+          if (existingUser.department) existingPatient.department = existingUser.department;
+          if (existingUser.course) existingPatient.course = existingUser.course;
+          if (existingUser.yearLevel) existingPatient.yearLevel = existingUser.yearLevel;
+          if (existingUser.section) existingPatient.section = existingUser.section;
           console.log(`Re-linked patient to user account: ${req.body.email}`);
         }
         
@@ -119,6 +124,11 @@ exports.createPatient = async (req, res) => {
       if (existingUser) {
         patientData.userId = existingUser._id;
         patientData.isRegisteredUser = true;
+        // Copy academic info from User to Patient (use registered user data)
+        if (existingUser.department) patientData.department = existingUser.department;
+        if (existingUser.course) patientData.course = existingUser.course;
+        if (existingUser.yearLevel) patientData.yearLevel = existingUser.yearLevel;
+        if (existingUser.section) patientData.section = existingUser.section;
         console.log(`Auto-linked patient to existing user: ${req.body.email}`);
       }
     }
