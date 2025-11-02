@@ -28,13 +28,19 @@ exports.getAllPatients = async (req, res) => {
     
     // Search functionality
     if (search) {
-      query.$or = [
+      const searchQuery = [
         { fullName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { department: { $regex: search, $options: 'i' } },
-        { course: { $regex: search, $options: 'i' } },
-        { yearLevel: { $regex: search, $options: 'i' } }
+        { course: { $regex: search, $options: 'i' } }
       ];
+      
+      // Only add yearLevel to search if search term is numeric or string
+      if (search) {
+        searchQuery.push({ yearLevel: { $regex: search.toString(), $options: 'i' } });
+      }
+      
+      query.$or = searchQuery;
     }
     
     const patients = await Patient.find(query)
