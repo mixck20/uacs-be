@@ -659,18 +659,44 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: "New password must be different from current password" });
     }
 
-    // Hash new password
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash and store pending password temporarily
     const salt = await bcrypt.genSalt(10);
     const hashedNewPassword = await bcrypt.hash(newPassword, salt);
     
-    // Update password directly (user is already authenticated)
-    user.password = hashedNewPassword;
+    user.pendingPassword = hashedNewPassword;
+    user.passwordChangeToken = verificationToken;
+    user.passwordChangeTokenExpiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     await user.save();
 
-    res.json({ 
-      message: "Password changed successfully. Please login with your new password.",
-      success: true
-    });
+    // Send verification email
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-password-change/${verificationToken}`;
+    
+    try {
+      // Get user's name for email
+      const userName = user.name || `${user.firstName} ${user.lastName}`;
+      
+      await emailService.sendPasswordChangeVerification(user.email, userName, verificationUrl);
+
+      res.json({ 
+        message: "Verification email sent. Please check your inbox to complete the password change.",
+        requiresVerification: true
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      console.error('Email error details:', emailError.message);
+      // Rollback the pending password change
+      user.pendingPassword = undefined;
+      user.passwordChangeToken = undefined;
+      user.passwordChangeTokenExpiry = undefined;
+      await user.save();
+      return res.status(500).json({ 
+        message: "Failed to send verification email. Please contact support if this persists.",
+        error: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+      });
+    }
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).json({ message: "Failed to change password" });

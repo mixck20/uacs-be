@@ -300,6 +300,11 @@ const sendLowStockAlert = async ({ itemName, currentQuantity, minQuantity, categ
 
 // Send password change verification email
 const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.error('Email service not configured properly');
+    throw new Error('Email service is not configured. Please contact support.');
+  }
+
   const mailOptions = {
     from: `"UA Clinic System" <${SMTP_USER}>`,
     to: to,
@@ -321,11 +326,15 @@ const sendPasswordChangeVerification = async (to, name, verificationUrl) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
     console.log('Password change verification email sent to:', to);
+    console.log('Message ID:', info.messageId);
+    return info;
   } catch (error) {
-    console.error('Error sending password change verification email:', error);
-    throw error;
+    console.error('Error sending password change verification email to:', to);
+    console.error('Error details:', error.message);
+    if (error.code) console.error('Error code:', error.code);
+    throw new Error(`Failed to send verification email: ${error.message}`);
   }
 };
 
