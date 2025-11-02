@@ -1,5 +1,6 @@
 const Inventory = require('../models/Inventory');
 const Patient = require('../models/Patient');
+const DispensingRecord = require('../models/DispensingRecord');
 const { sendLowStockAlert } = require('../utils/emailService');
 
 exports.getAllItems = async (req, res) => {
@@ -87,8 +88,9 @@ exports.dispenseItem = async (req, res) => {
 
     // Deduct quantity
     item.quantity -= quantity;
+    const stockAfterDispensing = item.quantity;
 
-    // Add to dispensing history
+    // Add to dispensing history (kept for backward compatibility)
     item.dispensingHistory.push({
       patientName,
       studentId,
@@ -102,6 +104,23 @@ exports.dispenseItem = async (req, res) => {
     });
 
     await item.save();
+
+    // Create permanent dispensing record in separate collection
+    const dispensingRecord = new DispensingRecord({
+      itemId: item._id,
+      itemName: item.name,
+      itemCategory: item.category,
+      patientName,
+      patientId,
+      quantity,
+      dispensedBy: req.user.id || req.user._id,
+      appointmentId,
+      reason,
+      notes,
+      stockAfterDispensing,
+      dispensedAt: new Date()
+    });
+    await dispensingRecord.save();
 
     // Populate the dispensed by user info
     await item.populate('dispensingHistory.dispensedBy', 'name email');
@@ -179,41 +198,25 @@ exports.getAllDispensingRecords = async (req, res) => {
   try {
     const { startDate, endDate, limit = 100 } = req.query;
 
-    const items = await Inventory.find()
-      .populate('dispensingHistory.dispensedBy', 'name email role')
-      .populate('dispensingHistory.patientId', 'fullName email studentId');
-
-    let allRecords = [];
-    
-    items.forEach(item => {
-      item.dispensingHistory.forEach(record => {
-        allRecords.push({
-          ...record.toObject(),
-          itemId: item._id,
-          itemName: item.name,
-          itemCategory: item.category
-        });
-      });
-    });
-
-    // Filter by date range
+    // Build query
+    const query = {};
     if (startDate || endDate) {
-      allRecords = allRecords.filter(record => {
-        const recordDate = new Date(record.dispensedAt);
-        if (startDate && recordDate < new Date(startDate)) return false;
-        if (endDate && recordDate > new Date(endDate)) return false;
-        return true;
-      });
+      query.dispensedAt = {};
+      if (startDate) query.dispensedAt.$gte = new Date(startDate);
+      if (endDate) query.dispensedAt.$lte = new Date(endDate);
     }
 
-    // Sort by most recent first and limit
-    allRecords = allRecords
-      .sort((a, b) => new Date(b.dispensedAt) - new Date(a.dispensedAt))
-      .slice(0, parseInt(limit));
+    // Get records from separate collection (permanent records)
+    const records = await DispensingRecord.find(query)
+      .populate('dispensedBy', 'name email role')
+      .populate('patientId', 'firstName lastName email')
+      .populate('itemId', 'name quantity')
+      .sort({ dispensedAt: -1 })
+      .limit(parseInt(limit));
 
     res.json({
-      total: allRecords.length,
-      records: allRecords
+      total: records.length,
+      records
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -227,33 +230,37 @@ exports.getDispensingStats = async (req, res) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period));
 
-    const items = await Inventory.find();
+    // Get records from permanent collection
+    const records = await DispensingRecord.find({
+      dispensedAt: { $gte: startDate }
+    }).populate('itemId', 'name quantity minQuantity category');
 
+    // Group by item
+    const itemStatsMap = {};
     let totalDispensed = 0;
-    let itemStats = [];
 
-    items.forEach(item => {
-      const recentDispensing = item.dispensingHistory.filter(
-        record => new Date(record.dispensedAt) >= startDate
-      );
-
-      const totalQty = recentDispensing.reduce((sum, record) => sum + record.quantity, 0);
+    records.forEach(record => {
+      const itemId = record.itemId?._id?.toString() || record.itemId?.toString();
       
-      if (totalQty > 0) {
-        itemStats.push({
-          itemId: item._id,
-          itemName: item.name,
-          category: item.category,
-          totalDispensed: totalQty,
-          timesDispensed: recentDispensing.length,
-          currentStock: item.quantity,
-          isLowStock: item.quantity <= item.minQuantity
-        });
-        totalDispensed += totalQty;
+      if (!itemStatsMap[itemId]) {
+        itemStatsMap[itemId] = {
+          itemId: itemId,
+          itemName: record.itemName,
+          category: record.itemCategory,
+          totalDispensed: 0,
+          timesDispensed: 0,
+          currentStock: record.itemId?.quantity || 0,
+          isLowStock: record.itemId ? record.itemId.quantity <= record.itemId.minQuantity : false
+        };
       }
+
+      itemStatsMap[itemId].totalDispensed += record.quantity;
+      itemStatsMap[itemId].timesDispensed += 1;
+      totalDispensed += record.quantity;
     });
 
-    // Sort by most dispensed
+    // Convert to array and sort
+    const itemStats = Object.values(itemStatsMap);
     itemStats.sort((a, b) => b.totalDispensed - a.totalDispensed);
 
     res.json({
