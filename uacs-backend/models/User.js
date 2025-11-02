@@ -38,4 +38,18 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Pre-save hook: Auto-populate department from course (PERMANENT FIX)
+userSchema.pre('save', function(next) {
+  // Only auto-populate if course exists but department is missing
+  if (this.course && !this.department) {
+    const { COURSE_TO_DEPARTMENT } = require('../utils/courseDepartmentMap');
+    const autoDepartment = COURSE_TO_DEPARTMENT[this.course];
+    if (autoDepartment) {
+      this.department = autoDepartment;
+      console.log(`🔧 Auto-populated department for ${this.email}: ${autoDepartment}`);
+    }
+  }
+  next();
+});
+
 module.exports = mongoose.model("User", userSchema);

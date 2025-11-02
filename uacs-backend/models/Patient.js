@@ -222,6 +222,16 @@ patientSchema.pre('save', function(next) {
     this.email = this.email.toLowerCase().trim();
   }
   
+  // Auto-populate department from course (PERMANENT FIX)
+  if (this.course && !this.department) {
+    const { COURSE_TO_DEPARTMENT } = require('../utils/courseDepartmentMap');
+    const autoDepartment = COURSE_TO_DEPARTMENT[this.course];
+    if (autoDepartment) {
+      this.department = autoDepartment;
+      console.log(`🔧 Auto-populated patient department: ${autoDepartment}`);
+    }
+  }
+  
   next();
 });
 
