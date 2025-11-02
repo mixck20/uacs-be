@@ -674,16 +674,28 @@ exports.changePassword = async (req, res) => {
     // Send verification email
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-password-change/${verificationToken}`;
     
-    // Get user's name for email
-    const userName = user.name || `${user.firstName} ${user.lastName}`;
+    // Get user's name for email - handle different name formats
+    let userName = user.name;
+    if (!userName && user.firstName && user.lastName) {
+      userName = `${user.firstName} ${user.lastName}`.trim();
+    } else if (!userName && user.firstName) {
+      userName = user.firstName;
+    } else if (!userName && user.lastName) {
+      userName = user.lastName;
+    } else if (!userName) {
+      userName = user.email.split('@')[0]; // Fallback to email username
+    }
     
-    console.log('Attempting to send password change verification email to:', user.email);
+    console.log('=== Password Change Request ===');
+    console.log('User ID:', userId);
+    console.log('User email:', user.email);
     console.log('User name:', userName);
+    console.log('User role:', user.role);
     console.log('Verification URL:', verificationUrl);
     
     await emailService.sendPasswordChangeVerification(user.email, userName, verificationUrl);
 
-    console.log('Password change verification email sent successfully');
+    console.log('✓ Password change verification email sent successfully');
     res.json({ 
       message: "Verification email sent. Please check your inbox to complete the password change.",
       requiresVerification: true
