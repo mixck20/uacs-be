@@ -54,9 +54,9 @@ exports.createPatient = async (req, res) => {
   try {
     const patientData = { ...req.body };
     
-    // Sanitize studentId: convert empty string to null for sparse unique index
-    if (patientData.studentId === '' || patientData.studentId === undefined) {
-      patientData.studentId = null;
+    // Sanitize studentId: remove field if empty (for sparse unique index)
+    if (patientData.studentId === '' || patientData.studentId === undefined || patientData.studentId === null) {
+      delete patientData.studentId; // Remove field entirely, don't set to null
     }
     
     // Check if a patient record with the same email already exists (preserve health records)
@@ -227,9 +227,9 @@ exports.updatePatient = async (req, res) => {
       return res.status(404).json({ message: 'Patient not found' });
     }
     
-    // Sanitize studentId: convert empty string to null for sparse unique index
-    if (req.body.studentId === '' || req.body.studentId === undefined) {
-      req.body.studentId = null;
+    // Sanitize studentId: remove field if empty (for sparse unique index)
+    if (req.body.studentId === '' || req.body.studentId === undefined || req.body.studentId === null) {
+      delete req.body.studentId; // Remove field entirely, don't set to null
     }
     
     // Track changes for edit history
