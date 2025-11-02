@@ -23,7 +23,6 @@ const createAuditLog = async ({
       resourceId,
       description,
       changes,
-      ipAddress: req.ip || req.connection.remoteAddress,
       userAgent: req.headers['user-agent'],
       status,
       errorMessage
