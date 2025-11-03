@@ -8,6 +8,7 @@ const Patient = require("../models/Patient");
 const LoginAttempt = require("../models/LoginAttempt");
 const { createAuditLog } = require("../middleware/auditLogger");
 const { COURSE_TO_DEPARTMENT } = require("../utils/courseDepartmentMap");
+const { validatePassword } = require("../utils/validation");
 
 // Validate JWT_SECRET on startup
 if (!process.env.JWT_SECRET) {
@@ -48,8 +49,11 @@ exports.register = async (req, res) => {
     }
 
     // Password validation
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters." });
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        message: passwordValidation.errors.join(', ')
+      });
     }
 
     // Check existing user
@@ -638,8 +642,11 @@ exports.changePassword = async (req, res) => {
     }
 
     // Password validation
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "New password must be at least 6 characters long" });
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        message: passwordValidation.errors.join(', ')
+      });
     }
 
     const user = await User.findById(userId);
