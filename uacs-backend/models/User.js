@@ -33,7 +33,10 @@ const userSchema = new mongoose.Schema(
     // Password change verification
     pendingPassword: String,
     passwordChangeToken: String,
-    passwordChangeTokenExpiry: Date
+    passwordChangeTokenExpiry: Date,
+    // Password reset (forgot password)
+    passwordResetToken: String,
+    passwordResetExpiry: Date
   },
   { timestamps: true }
 );

@@ -139,54 +139,74 @@ const sendVerificationEmail = async (to, token) => {
   }
 };
 
-const sendPasswordResetEmail = async (to, token) => {
-  // Get frontend URL from environment variable
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-  
+const sendPasswordResetEmail = async (to, resetUrl, userName = 'User') => {
   const mailOptions = {
-    from: `"UACS System" <${process.env.SMTP_USER}>`,
+    from: {
+      name: 'UA Clinic System',
+      address: SMTP_USER
+    },
     to: to,
-    subject: 'Reset Your Password - UACS System',
+    subject: '🔐 Password Reset Request - UA Clinic System',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #e51d5e;">Password Reset Request</h2>
-        <p>You requested to reset your password. Click the button below to set a new password:</p>
-        
-        <div style="margin: 30px 0; text-align: center;">
-          <a href="${resetUrl}" 
-             style="background-color: #e51d5e; 
-                    color: white; 
-                    padding: 12px 30px; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    display: inline-block;">
-            Reset Password
-          </a>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+        <div style="background: linear-gradient(135deg, #e51d5e 0%, #ff6b9d 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Password Reset Request</h1>
         </div>
-        
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="color: #4a5568;">${resetUrl}</p>
-        
-        <p style="margin-top: 30px; font-size: 14px; color: #718096;">
-          If you didn't request a password reset, please ignore this email.
-        </p>
-        
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-        
-        <p style="font-size: 12px; color: #718096;">
-          This is an automated message from UACS System. Please do not reply to this email.
-        </p>
+
+        <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello ${userName},</p>
+          
+          <p style="font-size: 16px; color: #555; line-height: 1.6;">
+            We received a request to reset your password for your UA Clinic System account. 
+            Click the button below to create a new password:
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" 
+               style="display: inline-block; 
+                      background: linear-gradient(135deg, #e51d5e 0%, #ff6b9d 100%); 
+                      color: white; 
+                      padding: 14px 32px; 
+                      text-decoration: none; 
+                      border-radius: 8px; 
+                      font-weight: bold;
+                      font-size: 16px;">
+              Reset My Password
+            </a>
+          </div>
+          
+          <div style="background: #f0f4f8; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #555;">
+              <strong>Or copy and paste this link in your browser:</strong>
+            </p>
+            <p style="margin: 10px 0 0 0; word-break: break-all; color: #e51d5e; font-size: 14px;">
+              ${resetUrl}
+            </p>
+          </div>
+
+          <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #856404;">
+              <strong>⚠️ Security Notice:</strong><br/>
+              This link will expire in <strong>1 hour</strong>. If you didn't request a password reset, 
+              please ignore this email or contact the clinic administrator if you have concerns.
+            </p>
+          </div>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #6c757d; font-size: 14px;">
+            <p style="margin: 5px 0;">This is an automated message from UA Clinic System</p>
+            <p style="margin: 5px 0;">Please do not reply to this email</p>
+          </div>
+        </div>
       </div>
     `
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log('Password reset email sent to:', to);
+    console.log('✓ Password reset email sent successfully to:', to);
     return true;
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    console.error('✗ Error sending password reset email:', error);
     throw error;
   }
 };

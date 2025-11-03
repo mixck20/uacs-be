@@ -804,3 +804,113 @@ exports.fixDepartments = async (req, res) => {
     res.status(500).json({ message: "Failed to fix departments" });
   }
 };
+
+// Request password reset - send email with reset token
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // Find user by email
+    const emailLower = email.toLowerCase().trim();
+    const user = await User.findOne({ email: emailLower });
+
+    // Always return success message to prevent email enumeration
+    const successMessage = "If an account with that email exists, a password reset link has been sent.";
+
+    if (!user) {
+      return res.json({ message: successMessage });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+
+    // Save token to user
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpiry = resetTokenExpiry;
+    await user.save();
+
+    // Send reset email
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    try {
+      await emailService.sendPasswordResetEmail(user.email, resetUrl, user.name || user.firstName || 'User');
+      
+      console.log(`Password reset email sent to ${user.email}`);
+      res.json({ message: successMessage });
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Clear the reset token if email fails
+      user.passwordResetToken = undefined;
+      user.passwordResetExpiry = undefined;
+      await user.save();
+      
+      return res.status(500).json({ 
+        message: "Failed to send password reset email. Please try again later." 
+      });
+    }
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ message: "Failed to process password reset request" });
+  }
+};
+
+// Reset password with token
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password are required" });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ 
+        message: passwordValidation.errors.join(', ')
+      });
+    }
+
+    // Find user with valid token
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        message: "Invalid or expired password reset token" 
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    
+    // Update password and clear reset token
+    user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpiry = undefined;
+    await user.save();
+
+    // Create audit log
+    await createAuditLog(
+      user._id,
+      'password_reset',
+      'auth',
+      null,
+      `Password reset completed via email token`
+    );
+
+    console.log(`Password reset successful for user: ${user.email}`);
+    
+    res.json({ message: "Password has been reset successfully. You can now log in with your new password." });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: "Failed to reset password" });
+  }
+};

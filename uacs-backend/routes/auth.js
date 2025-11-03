@@ -15,6 +15,10 @@ router.post("/logout", auth, authController.logout);
 router.put("/profile", auth, authController.updateProfile);
 router.post("/change-password", auth, authController.changePassword);
 
+// Password reset routes (forgot password)
+router.post("/forgot-password", authController.forgotPassword);
+router.post("/reset-password", authController.resetPassword);
+
 // Verification routes for profile changes
 router.post("/verify-email-change/:token", authController.verifyEmailChange);
 router.post("/verify-password-change/:token", authController.verifyPasswordChange);
