@@ -10,19 +10,97 @@ const path = require('path');
  */
 router.get('/authorize', (req, res) => {
   try {
+    // Verify configuration first
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    
+    console.log('🔐 OAuth Configuration Check:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      redirectUri: redirectUri
+    });
+    
+    if (!clientId || !clientSecret || !redirectUri) {
+      return res.status(500).send(`
+        <html>
+          <head>
+            <title>Configuration Error</title>
+            <style>
+              body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+              .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto; border-left: 4px solid #f44336; }
+              h1 { color: #f44336; margin-top: 0; }
+              code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+            </style>
+          </head>
+          <body>
+            <div class="error-box">
+              <h1>❌ OAuth Configuration Missing</h1>
+              <p>The following environment variables are required:</p>
+              <ul>
+                <li><code>GOOGLE_CLIENT_ID</code>: ${clientId ? '✓ Set' : '✗ Missing'}</li>
+                <li><code>GOOGLE_CLIENT_SECRET</code>: ${clientSecret ? '✓ Set' : '✗ Missing'}</li>
+                <li><code>GOOGLE_REDIRECT_URI</code>: ${redirectUri || '✗ Missing'}</li>
+              </ul>
+              <p>Please configure these in your <code>.env</code> file and Vercel environment variables.</p>
+              <p>See <code>GOOGLE_OAUTH_FIX.md</code> for detailed setup instructions.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+    
     const authUrl = getAuthUrl();
     
     if (!authUrl) {
-      return res.status(500).json({
-        error: 'OAuth2 not configured. Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env'
-      });
+      return res.status(500).send(`
+        <html>
+          <head>
+            <title>OAuth Error</title>
+            <style>
+              body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+              .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto; border-left: 4px solid #f44336; }
+              h1 { color: #f44336; margin-top: 0; }
+            </style>
+          </head>
+          <body>
+            <div class="error-box">
+              <h1>❌ Failed to Generate Authorization URL</h1>
+              <p>Unable to create OAuth authorization URL. Please check your Google Cloud Console configuration.</p>
+            </div>
+          </body>
+        </html>
+      `);
     }
 
+    console.log('✅ Redirecting to Google OAuth consent screen');
+    console.log('🔗 Auth URL:', authUrl.substring(0, 100) + '...');
+    
     // Redirect user to Google's consent page
     res.redirect(authUrl);
   } catch (error) {
-    console.error('Error generating auth URL:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error generating auth URL:', error);
+    res.status(500).send(`
+      <html>
+        <head>
+          <title>Authorization Error</title>
+          <style>
+            body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+            .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto; border-left: 4px solid #f44336; }
+            h1 { color: #f44336; margin-top: 0; }
+            pre { background: #f0f0f0; padding: 10px; border-radius: 5px; overflow-x: auto; }
+          </style>
+        </head>
+        <body>
+          <div class="error-box">
+            <h1>❌ Authorization Error</h1>
+            <p><strong>Error:</strong> ${error.message}</p>
+            <p>Check the server logs for more details.</p>
+            <pre>${error.stack}</pre>
+          </div>
+        </body>
+      </html>
+    `);
   }
 });
 
