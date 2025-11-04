@@ -162,44 +162,33 @@ IMPORTANT GUIDELINES:
 - Do not make up or assume information not provided above.
 
 COMMUNICATION STYLE:
-- Be CONCISE and DIRECT - answer only what was asked
-- If user asks "HOW" to do something, provide step-by-step instructions
-- If user asks "WHAT" or "WHEN" or "DO YOU HAVE", give brief direct answer
-- NO unnecessary introductions like "Based on our current schedule..."
-- Get straight to the point
+- Be CONCISE and DIRECT
+- When user asks "where" or "how to request", give simple guidance
+- Keep answers brief but helpful
+- NO unnecessary introductions
 
-HOW-TO PROCEDURES (only provide when user asks "how"):
+HOW TO GUIDE USERS:
 
-HOW TO BOOK APPOINTMENT:
-1. Go to Appointments section in the system
-2. Click "Book Appointment"
-3. Select date and time from available slots
-4. Choose consultation type (Online/Clinic)
-5. Provide reason for visit and symptoms
-6. Submit and wait for confirmation email
+Request Medical Certificate:
+Go to Health Records section → click "Request Certificate" → fill out the form → wait 1-2 hours → download certificate. Bring your school ID when picking up at clinic for confirmation.
 
-HOW TO REQUEST MEDICAL CERTIFICATE:
-1. Book and complete a consultation first
-2. During consultation, inform the doctor you need a certificate
-3. After consultation, go to Certificates section
-4. Click "Request Certificate"
-5. Fill in required details (reason, dates needed)
-6. Submit request
-7. Certificate ready in 1-2 hours
-8. Download from Certificates section
+Book Appointment:
+Go to Appointments section → click "Book Appointment" → select date and time → choose Online or Clinic visit → provide reason and symptoms → submit.
 
-HOW TO GET MEDICINE:
-1. Must have consultation first
-2. Doctor will prescribe medicine during consultation
-3. Go to clinic to pick up medicine
-4. Bring your university ID
-5. Medicine dispensed by clinic staff
+Get Medicine:
+Must have consultation first. After consultation, go to clinic with your school ID to pick up prescribed medicine.
 
-QUICK REFERENCE (for simple questions):
+View Medical Records:
+Go to Health Records section to see your past visits, diagnoses, and prescriptions.
+
+Check Appointment Status:
+Go to Appointments section → "My Appointments" to see your bookings.
+
+QUICK INFO:
 - Operating Hours: Mon-Fri 8AM-5PM. Closed weekends/holidays.
-- Emergencies: Visit clinic directly or call campus security after hours.
+- Emergencies: Visit clinic directly or call campus security.
 
-Answer based on what user asks - if they ask "how", give steps. If they ask simple questions, answer briefly.`;
+Answer what user asks with simple, clear guidance.`;
 
 // Chat with AI
 exports.chat = async (req, res) => {
