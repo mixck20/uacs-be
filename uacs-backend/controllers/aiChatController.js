@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const TimeSlot = require('../models/TimeSlot');
+const Schedule = require('../models/Schedule');
 const Inventory = require('../models/Inventory');
 const Appointment = require('../models/Appointment');
 
@@ -12,24 +13,16 @@ const getClinicContext = async () => {
     const now = new Date();
     now.setHours(0, 0, 0, 0); // Start of today
 
-    // Get current and future schedules only
-    const schedules = await TimeSlot.find({ 
+    // Get bookable appointment time slots (if any)
+    const timeSlots = await TimeSlot.find({ 
       isAvailable: true,
       date: { $gte: now } // Only future dates
     })
       .sort({ date: 1, startTime: 1 })
       .limit(30);
 
-    console.log('🔍 Schedule Debug Info:');
-    console.log('Today:', now);
-    console.log('Total available slots found:', schedules.length);
-    if (schedules.length > 0) {
-      console.log('First 3 slots:', schedules.slice(0, 3).map(s => ({
-        date: s.date,
-        time: `${s.startTime}-${s.endTime}`,
-        isAvailable: s.isAvailable
-      })));
-    }
+    // Get staff/doctor schedule information
+    const scheduleData = await Schedule.findOne();
 
     // Get available medicines with stock > 0
     const medicines = await Inventory.find({ 
@@ -53,18 +46,48 @@ const getClinicContext = async () => {
       }
     ]);
 
-    // Format schedule information with more details
-    const scheduleInfo = schedules.length > 0 
-      ? schedules.map(slot => {
+    // Format bookable time slots (if any exist)
+    let timeSlotInfo = '';
+    if (timeSlots.length > 0) {
+      timeSlotInfo = '\n\n📅 AVAILABLE APPOINTMENT TIME SLOTS:\n' + 
+        timeSlots.map(slot => {
           const date = new Date(slot.date).toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
             day: 'numeric',
             year: 'numeric'
           });
-          return `• ${date} at ${slot.startTime} - ${slot.endTime}`;
-        }).join('\n')
-      : 'No available appointment slots at the moment. Please check back later or contact the clinic directly.';
+          return `• ${date} at ${slot.startTime} - ${slot.endTime} (${slot.type})`;
+        }).join('\n');
+    }
+
+    // Format staff and doctor schedules
+    let staffScheduleInfo = '';
+    if (scheduleData && scheduleData.staffSchedules && scheduleData.staffSchedules.length > 0) {
+      staffScheduleInfo = '\n\n👨‍⚕️ STAFF SCHEDULES:\n';
+      scheduleData.staffSchedules.forEach(staff => {
+        staffScheduleInfo += `\n${staff.name} (${staff.role})`;
+        if (staff.designation) staffScheduleInfo += ` - ${staff.designation}`;
+        if (staff.dayOfDuty) staffScheduleInfo += `\n  Days: ${staff.dayOfDuty}`;
+        if (staff.time) staffScheduleInfo += `\n  Time: ${staff.time}`;
+        if (staff.schedule) staffScheduleInfo += `\n  Schedule: ${staff.schedule}`;
+        staffScheduleInfo += '\n';
+      });
+    }
+
+    let doctorScheduleInfo = '';
+    if (scheduleData && scheduleData.doctorSchedules && scheduleData.doctorSchedules.length > 0) {
+      doctorScheduleInfo = '\n\n🩺 DOCTOR SCHEDULES:\n';
+      scheduleData.doctorSchedules.forEach(doctor => {
+        doctorScheduleInfo += `\n${doctor.name} (${doctor.type})`;
+        if (doctor.regularSchedule) doctorScheduleInfo += `\n  Regular: ${doctor.regularSchedule}`;
+        if (doctor.medicalExaminationSchedule) doctorScheduleInfo += `\n  Medical Exam: ${doctor.medicalExaminationSchedule}`;
+        doctorScheduleInfo += '\n';
+      });
+    }
+
+    const scheduleInfo = (timeSlotInfo + staffScheduleInfo + doctorScheduleInfo).trim() ||
+      'No schedule information available at the moment. Please contact the clinic directly.';
 
     // Format medicine information by category - show availability only, not exact counts
     const medicinesByCategory = {};
@@ -96,7 +119,7 @@ const getClinicContext = async () => {
       medicines: medicineInfo.trim(),
       inventoryList: inventoryList ? `• ${inventoryList}` : 'No inventory items found',
       appointmentStats: appointmentStats,
-      totalAvailableSlots: schedules.length,
+      totalAvailableSlots: timeSlots.length,
       totalMedicinesInStock: medicines.length,
       lastUpdated: new Date().toISOString()
     };
@@ -119,7 +142,7 @@ const getSystemPrompt = (context) => `You are a helpful AI assistant for UACS Un
 
 REAL-TIME CLINIC INFORMATION (Last Updated: ${new Date(context.lastUpdated).toLocaleString()}):
 
-📅 AVAILABLE APPOINTMENT SLOTS (${context.totalAvailableSlots} slots available):
+� CLINIC SCHEDULES & AVAILABILITY:
 ${context.schedules}
 
 💊 AVAILABLE MEDICINES IN STOCK (${context.totalMedicinesInStock} items):
@@ -130,8 +153,8 @@ ${context.inventoryList}
 
 IMPORTANT GUIDELINES:
 - This information is REAL-TIME and current. Use THIS EXACT DATA above.
-- When users ask about "schedule" or "appointment slots", refer to the AVAILABLE APPOINTMENT SLOTS section above
-- The appointment slots listed above are the ACTUAL available times students can book
+- When users ask about "schedule", show them the doctor/staff schedules listed above
+- If there are bookable appointment time slots, inform them of those specific dates/times
 - When users ask about medicines, tell them if the item is "Available" or "Out of stock"
 - DO NOT mention specific stock quantities or numbers
 - If a medicine is listed as "Available", simply confirm it's available
