@@ -109,10 +109,66 @@ router.get('/authorize', (req, res) => {
  * Handle OAuth callback from Google
  */
 router.get('/callback', async (req, res) => {
-  const { code } = req.query;
+  console.log('📥 OAuth callback received');
+  console.log('Query params:', req.query);
+  
+  const { code, error, error_description } = req.query;
+
+  // Check if user denied access
+  if (error) {
+    console.error('❌ OAuth error:', error, error_description);
+    return res.status(400).send(`
+      <html>
+        <head>
+          <title>Authorization Denied</title>
+          <style>
+            body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+            .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto; border-left: 4px solid #ff9800; }
+            h1 { color: #ff9800; margin-top: 0; }
+            .button { display: inline-block; margin-top: 20px; padding: 12px 30px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="error-box">
+            <h1>⚠️ Authorization Denied</h1>
+            <p><strong>Error:</strong> ${error}</p>
+            <p>${error_description || 'You did not grant the necessary permissions.'}</p>
+            <p>To use Google Meet integration, you need to authorize this app to access your Google Calendar.</p>
+            <a href="/api/auth/google/authorize" class="button">Try Again</a>
+          </div>
+        </body>
+      </html>
+    `);
+  }
 
   if (!code) {
-    return res.status(400).send('Authorization code not provided');
+    console.error('❌ No authorization code provided');
+    return res.status(400).send(`
+      <html>
+        <head>
+          <title>Authorization Failed</title>
+          <style>
+            body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+            .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: 0 auto; border-left: 4px solid #f44336; }
+            h1 { color: #f44336; margin-top: 0; }
+            .button { display: inline-block; margin-top: 20px; padding: 12px 30px; background: #e51d5e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="error-box">
+            <h1>❌ Authorization Failed</h1>
+            <p>Authorization code not provided by Google.</p>
+            <p>This usually means:</p>
+            <ul>
+              <li>You cancelled the authorization</li>
+              <li>The OAuth consent screen had an error</li>
+              <li>The redirect URI doesn't match</li>
+            </ul>
+            <a href="/api/auth/google/authorize" class="button">Try Again</a>
+          </div>
+        </body>
+      </html>
+    `);
   }
 
   try {
