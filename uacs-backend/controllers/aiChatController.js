@@ -55,12 +55,12 @@ const getClinicContext = async () => {
         }).join('\n')
       : 'No available appointment slots at the moment. Please check back later or contact the clinic directly.';
 
-    // Format medicine information by category
+    // Format medicine information by category - show availability only, not exact counts
     const medicinesByCategory = {};
     medicines.forEach(med => {
       const cat = med.category || 'Other';
       if (!medicinesByCategory[cat]) medicinesByCategory[cat] = [];
-      medicinesByCategory[cat].push(`${med.name} (${med.quantity} units available)`);
+      medicinesByCategory[cat].push(`${med.name} (Available)`);
     });
 
     let medicineInfo = '';
@@ -75,9 +75,9 @@ const getClinicContext = async () => {
       medicineInfo = 'No medicines currently in stock. Please check with clinic staff for availability.';
     }
 
-    // Format all inventory for reference
+    // Format all inventory for reference - show availability status only
     const inventoryList = allInventory.map(item => 
-      `${item.name} (${item.category || 'General'}) - ${item.quantity > 0 ? `${item.quantity} available` : 'Out of stock'}`
+      `${item.name} (${item.category || 'General'}) - ${item.quantity > 0 ? 'Available' : 'Out of stock'}`
     ).join('\n• ');
 
     return {
@@ -117,7 +117,13 @@ ${context.medicines}
 📦 COMPLETE INVENTORY LIST:
 ${context.inventoryList}
 
-IMPORTANT: This information is REAL-TIME and current. When users ask about schedules or medicines, use THIS EXACT DATA above. Do not make up or assume information.
+IMPORTANT GUIDELINES:
+- This information is REAL-TIME and current. Use THIS EXACT DATA above.
+- When users ask about medicines, tell them if the item is "Available" or "Out of stock"
+- DO NOT mention specific stock quantities or numbers
+- If a medicine is listed as "Available", simply confirm it's available
+- If not listed or marked "Out of stock", tell them it's currently unavailable
+- Do not make up or assume information not provided above.
 
 CLINIC SERVICES & PROCEDURES:
 
