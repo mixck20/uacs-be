@@ -187,26 +187,37 @@ router.get('/callback', async (req, res) => {
       );
     }
 
-    // Update .env file with refresh token
-    const envPath = path.join(__dirname, '..', '.env');
-    let envContent = fs.readFileSync(envPath, 'utf8');
+    // In production/Vercel, environment variables must be set via dashboard
+    // In development, try to update .env file
+    const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
     
-    // Replace or add GOOGLE_REFRESH_TOKEN
-    if (envContent.includes('GOOGLE_REFRESH_TOKEN=')) {
-      envContent = envContent.replace(
-        /GOOGLE_REFRESH_TOKEN=.*/,
-        `GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`
-      );
-    } else {
-      envContent += `\nGOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`;
+    if (!isProduction) {
+      try {
+        const envPath = path.join(__dirname, '..', '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        
+        // Replace or add GOOGLE_REFRESH_TOKEN
+        if (envContent.includes('GOOGLE_REFRESH_TOKEN=')) {
+          envContent = envContent.replace(
+            /GOOGLE_REFRESH_TOKEN=.*/,
+            `GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`
+          );
+        } else {
+          envContent += `\nGOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`;
+        }
+        
+        fs.writeFileSync(envPath, envContent);
+        console.log('✅ Refresh token saved to .env file');
+      } catch (err) {
+        console.warn('⚠️ Could not update .env file:', err.message);
+      }
     }
-    
-    fs.writeFileSync(envPath, envContent);
-    console.log('✅ Refresh token saved to .env file');
 
-    // Update environment variable in current process
+    // Update environment variable in current process (works for current request only in serverless)
     process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
-
+    
+    console.log('✅ Refresh token obtained:', tokens.refresh_token.substring(0, 20) + '...');
+    
     res.send(`
       <html>
         <head>
@@ -217,9 +228,10 @@ router.get('/callback', async (req, res) => {
               display: flex;
               justify-content: center;
               align-items: center;
-              height: 100vh;
+              min-height: 100vh;
               margin: 0;
               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 20px;
             }
             .container {
               background: white;
@@ -227,11 +239,28 @@ router.get('/callback', async (req, res) => {
               border-radius: 10px;
               box-shadow: 0 10px 40px rgba(0,0,0,0.2);
               text-align: center;
-              max-width: 500px;
+              max-width: 600px;
             }
             h1 { color: #4CAF50; margin-bottom: 20px; }
             p { color: #555; line-height: 1.6; margin: 15px 0; }
             .success-icon { font-size: 60px; margin-bottom: 20px; }
+            .token-box {
+              background: #f5f5f5;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 20px 0;
+              word-break: break-all;
+              font-family: monospace;
+              font-size: 12px;
+              text-align: left;
+            }
+            .warning {
+              background: #fff3cd;
+              border-left: 4px solid #ffc107;
+              padding: 15px;
+              margin: 20px 0;
+              text-align: left;
+            }
             .button {
               display: inline-block;
               margin-top: 20px;
@@ -243,15 +272,38 @@ router.get('/callback', async (req, res) => {
               font-weight: bold;
             }
             .button:hover { background: #45a049; }
+            ol { text-align: left; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="success-icon">✅</div>
             <h1>Authorization Successful!</h1>
-            <p>Google Calendar has been connected successfully.</p>
-            <p>Your system can now create Google Meet links automatically when confirming appointments.</p>
-            <p><strong>You can close this window and return to your application.</strong></p>
+            <p>Google Calendar has been connected and tokens received.</p>
+            
+            ${isProduction ? `
+              <div class="warning">
+                <strong>⚠️ Important: Production Environment Detected</strong>
+                <p>You need to manually add this refresh token to Vercel environment variables:</p>
+                <ol>
+                  <li>Go to <a href="https://vercel.com/dashboard" target="_blank">Vercel Dashboard</a></li>
+                  <li>Select your <strong>uacs-be</strong> project</li>
+                  <li>Go to Settings → Environment Variables</li>
+                  <li>Add or update: <code>GOOGLE_REFRESH_TOKEN</code></li>
+                  <li>Paste the token below</li>
+                  <li>Click Save and redeploy</li>
+                </ol>
+              </div>
+              <div class="token-box">
+                <strong>Your Refresh Token:</strong><br/>
+                ${tokens.refresh_token}
+              </div>
+              <p style="font-size: 14px; color: #666;">Copy this token and add it to Vercel environment variables, then redeploy.</p>
+            ` : `
+              <p>The refresh token has been saved to your .env file locally.</p>
+              <p>Your system can now create Google Meet links automatically when confirming appointments.</p>
+            `}
+            
             <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">
               Return to Dashboard
             </a>
@@ -296,6 +348,22 @@ router.get('/callback', async (req, res) => {
       </html>
     `);
   }
+});
+
+/**
+ * GET /api/auth/google/config
+ * Show current OAuth configuration for debugging
+ */
+router.get('/config', (req, res) => {
+  res.json({
+    clientId: process.env.GOOGLE_CLIENT_ID || 'Not set',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'Not set',
+    hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    hasRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
+    instructions: 'Add this EXACT redirect URI to your Google Cloud Console OAuth client',
+    requiredRedirectUri: process.env.GOOGLE_REDIRECT_URI || 'https://uacs-be.vercel.app/api/auth/google/callback',
+    googleCloudConsoleUrl: 'https://console.cloud.google.com/apis/credentials'
+  });
 });
 
 /**
