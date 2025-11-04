@@ -198,6 +198,8 @@ exports.updateAppointment = async (req, res) => {
     if (req.body.status === 'Confirmed' && 
         (appointment.isOnline || appointment.type === 'Online Consultation' || req.body.isOnline)) {
       
+      console.log('🔵 Online consultation confirmed - attempting to create Google Meet link');
+      
       // Use date/time from request body if provided, otherwise use appointment's existing values
       let appointmentDate = req.body.date || appointment.date;
       const appointmentTime = req.body.time || appointment.time;
@@ -210,6 +212,13 @@ exports.updateAppointment = async (req, res) => {
         appointmentDate = appointmentDate.split('T')[0];
       }
       
+      console.log('📅 Appointment details for Meet link:', {
+        date: appointmentDate,
+        time: appointmentTime,
+        patientName: appointment.userId?.fullName || 'Patient',
+        patientEmail: appointment.userId?.email
+      });
+      
       // Try to create a real Google Meet link
       const meetResult = await createMeetLink({
         date: appointmentDate,
@@ -221,6 +230,7 @@ exports.updateAppointment = async (req, res) => {
       });
 
       if (meetResult.success) {
+        console.log('✅ Google Meet link created successfully:', meetResult.meetLink);
         req.body.consultationDetails = {
           ...appointment.consultationDetails,
           meetLink: meetResult.meetLink,
@@ -229,14 +239,17 @@ exports.updateAppointment = async (req, res) => {
           chatEnabled: true,
         };
       } else {
-        console.warn('⚠️ Google Meet link creation failed:', meetResult.error);
-        // Fallback to placeholder link
-        req.body.consultationDetails = {
-          ...appointment.consultationDetails,
-          meetLink: `https://meet.google.com/placeholder-${appointment._id}`,
-          chatEnabled: true,
+        console.error('❌ Google Meet link creation failed:', meetResult.error);
+        console.error('💡 Helpful tip:', meetResult.helpfulTip);
+        
+        // Return error to frontend so they know Meet link failed
+        return res.status(500).json({ 
+          message: 'Appointment confirmed but Google Meet link creation failed',
           error: meetResult.error,
-        };
+          helpfulTip: meetResult.helpfulTip || 'Google Calendar API may not be properly configured',
+          appointment: appointment.toObject(),
+          meetLinkStatus: 'failed'
+        });
       }
       
       req.body.isOnline = true;

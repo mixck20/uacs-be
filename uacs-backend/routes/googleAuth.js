@@ -170,13 +170,70 @@ router.get('/callback', async (req, res) => {
  */
 router.get('/status', (req, res) => {
   const hasRefreshToken = !!process.env.GOOGLE_REFRESH_TOKEN;
+  const hasServiceAccount = !!(process.env.GOOGLE_CALENDAR_CLIENT_EMAIL && process.env.GOOGLE_CALENDAR_PRIVATE_KEY);
   
   res.json({
-    authorized: hasRefreshToken,
-    message: hasRefreshToken 
+    oauth2: {
+      configured: !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET,
+      hasRefreshToken: hasRefreshToken,
+      refreshTokenLength: process.env.GOOGLE_REFRESH_TOKEN?.length || 0
+    },
+    serviceAccount: {
+      configured: hasServiceAccount,
+      clientEmail: process.env.GOOGLE_CALENDAR_CLIENT_EMAIL || 'Not set'
+    },
+    status: hasRefreshToken || hasServiceAccount ? 'ready' : 'not_configured',
+    message: hasRefreshToken || hasServiceAccount
       ? 'Google Calendar is connected and ready to create Meet links'
-      : 'Not authorized. Please visit /api/auth/google/authorize to connect'
+      : 'Not authorized. Please visit /api/auth/google/authorize to connect or configure service account'
   });
+});
+
+/**
+ * GET /api/auth/google/test-meet
+ * Test Google Meet link creation
+ */
+router.get('/test-meet', async (req, res) => {
+  const { createMeetLink } = require('../utils/googleMeetService');
+  
+  try {
+    console.log('🧪 Testing Google Meet link creation...');
+    
+    const testDate = new Date();
+    testDate.setDate(testDate.getDate() + 1); // Tomorrow
+    const dateStr = testDate.toISOString().split('T')[0];
+    
+    const result = await createMeetLink({
+      date: dateStr,
+      time: '14:00',
+      duration: 30,
+      patientName: 'Test Patient',
+      patientEmail: 'test@example.com',
+      reason: 'Test consultation'
+    });
+    
+    res.json({
+      test: 'Google Meet Link Creation',
+      timestamp: new Date().toISOString(),
+      result: result,
+      config: {
+        hasOAuth2: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
+        hasServiceAccount: !!(process.env.GOOGLE_CALENDAR_CLIENT_EMAIL && process.env.GOOGLE_CALENDAR_PRIVATE_KEY)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+    res.status(500).json({ 
+      test: 'Google Meet Link Creation',
+      status: 'failed',
+      error: error.message, 
+      stack: error.stack,
+      config: {
+        hasOAuth2: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN),
+        hasServiceAccount: !!(process.env.GOOGLE_CALENDAR_CLIENT_EMAIL && process.env.GOOGLE_CALENDAR_PRIVATE_KEY)
+      }
+    });
+  }
 });
 
 module.exports = router;
