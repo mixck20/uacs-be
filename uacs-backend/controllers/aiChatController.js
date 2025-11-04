@@ -20,6 +20,17 @@ const getClinicContext = async () => {
       .sort({ date: 1, startTime: 1 })
       .limit(30);
 
+    console.log('🔍 Schedule Debug Info:');
+    console.log('Today:', now);
+    console.log('Total available slots found:', schedules.length);
+    if (schedules.length > 0) {
+      console.log('First 3 slots:', schedules.slice(0, 3).map(s => ({
+        date: s.date,
+        time: `${s.startTime}-${s.endTime}`,
+        isAvailable: s.isAvailable
+      })));
+    }
+
     // Get available medicines with stock > 0
     const medicines = await Inventory.find({ 
       quantity: { $gt: 0 }
