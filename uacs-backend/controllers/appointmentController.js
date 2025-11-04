@@ -237,19 +237,24 @@ exports.updateAppointment = async (req, res) => {
           eventId: meetResult.eventId,
           calendarLink: meetResult.calendarLink,
           chatEnabled: true,
+          meetLinkGenerated: true
         };
       } else {
         console.error('❌ Google Meet link creation failed:', meetResult.error);
         console.error('💡 Helpful tip:', meetResult.helpfulTip);
         
-        // Return error to frontend so they know Meet link failed
-        return res.status(500).json({ 
-          message: 'Appointment confirmed but Google Meet link creation failed',
-          error: meetResult.error,
-          helpfulTip: meetResult.helpfulTip || 'Google Calendar API may not be properly configured',
-          appointment: appointment.toObject(),
-          meetLinkStatus: 'failed'
-        });
+        // Continue with appointment confirmation but note that Meet link failed
+        // Staff can manually create and add a Meet link later
+        req.body.consultationDetails = {
+          ...appointment.consultationDetails,
+          meetLink: null,
+          chatEnabled: true,
+          meetLinkGenerated: false,
+          meetLinkError: meetResult.error,
+          note: 'Google Meet link could not be automatically generated. Please create manually and add to appointment notes.'
+        };
+        
+        console.log('⚠️ Proceeding with appointment confirmation without automatic Meet link');
       }
       
       req.body.isOnline = true;
@@ -312,11 +317,19 @@ exports.updateAppointment = async (req, res) => {
       status: 'SUCCESS'
     });
     
-    // Return the Meet link in the response
-    res.json({
+    // Prepare response
+    const responseData = {
       ...updatedAppointment.toObject(),
       meetLink: updatedAppointment.consultationDetails?.meetLink,
-    });
+    };
+    
+    // Add warning if Meet link generation failed
+    if (updatedAppointment.consultationDetails?.meetLinkGenerated === false) {
+      responseData.warning = 'Appointment confirmed but Google Meet link could not be automatically generated. Please create a meeting link manually.';
+      responseData.meetLinkStatus = 'generation_failed';
+    }
+    
+    res.json(responseData);
   } catch (error) {
     console.error('Update appointment error:', error);
     res.status(400).json({ message: error.message });
