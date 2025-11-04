@@ -6,19 +6,31 @@ const Appointment = require('../models/Appointment');
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Get clinic context for AI
+// Get clinic context for AI - fetches REAL-TIME data
 const getClinicContext = async () => {
   try {
-    // Get current schedules
-    const schedules = await TimeSlot.find({ isAvailable: true })
-      .sort({ date: 1, startTime: 1 })
-      .limit(20);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Start of today
 
-    // Get available medicines
+    // Get current and future schedules only
+    const schedules = await TimeSlot.find({ 
+      isAvailable: true,
+      date: { $gte: now } // Only future dates
+    })
+      .sort({ date: 1, startTime: 1 })
+      .limit(30);
+
+    // Get available medicines with stock > 0
     const medicines = await Inventory.find({ 
-      quantity: { $gt: 0 },
-      category: 'medicine'
-    }).select('name quantity category');
+      quantity: { $gt: 0 }
+    })
+      .select('name quantity category expiryDate')
+      .sort({ name: 1 });
+
+    // Get all inventory items for comprehensive information
+    const allInventory = await Inventory.find({})
+      .select('name quantity category')
+      .sort({ name: 1 });
 
     // Get recent appointment stats
     const appointmentStats = await Appointment.aggregate([
@@ -30,35 +42,63 @@ const getClinicContext = async () => {
       }
     ]);
 
-    // Format schedule information
-    const scheduleInfo = schedules.map(slot => {
-      const date = new Date(slot.date).toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      return `${date} at ${slot.startTime} - ${slot.endTime}`;
-    }).join('\n');
+    // Format schedule information with more details
+    const scheduleInfo = schedules.length > 0 
+      ? schedules.map(slot => {
+          const date = new Date(slot.date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          });
+          return `• ${date} at ${slot.startTime} - ${slot.endTime}`;
+        }).join('\n')
+      : 'No available appointment slots at the moment. Please check back later or contact the clinic directly.';
 
-    // Format medicine information
-    const medicineInfo = medicines.map(med => 
-      `${med.name} (${med.quantity} available)`
-    ).join('\n');
+    // Format medicine information by category
+    const medicinesByCategory = {};
+    medicines.forEach(med => {
+      const cat = med.category || 'Other';
+      if (!medicinesByCategory[cat]) medicinesByCategory[cat] = [];
+      medicinesByCategory[cat].push(`${med.name} (${med.quantity} units available)`);
+    });
+
+    let medicineInfo = '';
+    Object.keys(medicinesByCategory).sort().forEach(category => {
+      medicineInfo += `\n${category}:\n`;
+      medicinesByCategory[category].forEach(item => {
+        medicineInfo += `  • ${item}\n`;
+      });
+    });
+
+    if (!medicineInfo) {
+      medicineInfo = 'No medicines currently in stock. Please check with clinic staff for availability.';
+    }
+
+    // Format all inventory for reference
+    const inventoryList = allInventory.map(item => 
+      `${item.name} (${item.category || 'General'}) - ${item.quantity > 0 ? `${item.quantity} available` : 'Out of stock'}`
+    ).join('\n• ');
 
     return {
-      schedules: scheduleInfo || 'No available schedules at the moment',
-      medicines: medicineInfo || 'No medicines currently in stock',
+      schedules: scheduleInfo,
+      medicines: medicineInfo.trim(),
+      inventoryList: inventoryList ? `• ${inventoryList}` : 'No inventory items found',
       appointmentStats: appointmentStats,
-      totalAvailableSlots: schedules.length
+      totalAvailableSlots: schedules.length,
+      totalMedicinesInStock: medicines.length,
+      lastUpdated: new Date().toISOString()
     };
   } catch (error) {
     console.error('Error getting clinic context:', error);
     return {
-      schedules: 'Unable to fetch schedule information',
-      medicines: 'Unable to fetch medicine information',
+      schedules: 'Unable to fetch schedule information. Please contact the clinic.',
+      medicines: 'Unable to fetch medicine information. Please contact the clinic.',
+      inventoryList: 'Unable to fetch inventory information.',
       appointmentStats: [],
-      totalAvailableSlots: 0
+      totalAvailableSlots: 0,
+      totalMedicinesInStock: 0,
+      lastUpdated: new Date().toISOString()
     };
   }
 };
@@ -66,13 +106,18 @@ const getClinicContext = async () => {
 // System prompt with clinic information
 const getSystemPrompt = (context) => `You are a helpful AI assistant for UACS University Clinic. Your role is to help students and faculty with questions about the clinic services.
 
-CURRENT CLINIC INFORMATION:
+REAL-TIME CLINIC INFORMATION (Last Updated: ${new Date(context.lastUpdated).toLocaleString()}):
 
-Available Appointment Slots:
+📅 AVAILABLE APPOINTMENT SLOTS (${context.totalAvailableSlots} slots available):
 ${context.schedules}
 
-Available Medicines:
+💊 AVAILABLE MEDICINES IN STOCK (${context.totalMedicinesInStock} items):
 ${context.medicines}
+
+📦 COMPLETE INVENTORY LIST:
+${context.inventoryList}
+
+IMPORTANT: This information is REAL-TIME and current. When users ask about schedules or medicines, use THIS EXACT DATA above. Do not make up or assume information.
 
 CLINIC SERVICES & PROCEDURES:
 
@@ -174,7 +219,8 @@ exports.chat = async (req, res) => {
       message: aiMessage,
       context: {
         availableSlots: context.totalAvailableSlots,
-        medicinesInStock: context.medicines.split('\n').length
+        medicinesInStock: context.totalMedicinesInStock,
+        lastUpdated: context.lastUpdated
       }
     });
 
