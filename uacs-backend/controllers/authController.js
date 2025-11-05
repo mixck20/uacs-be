@@ -188,8 +188,32 @@ exports.register = async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ message: "Registration failed. Please try again later." });
+    console.error('❌ Registration error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      code: err.code,
+      name: err.name,
+      stack: err.stack
+    });
+    
+    // Provide more specific error messages
+    if (err.code === 11000) {
+      // Duplicate key error
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(400).json({ 
+        message: `${field === 'email' ? 'Email' : 'ID number'} already exists` 
+      });
+    }
+    
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ message: errors.join(', ') });
+    }
+    
+    res.status(500).json({ 
+      message: "Registration failed. Please try again later.",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
