@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
       firstName,
       lastName,
       gender,
-      role,
+      role, // This will be ignored - role is auto-detected from email
       department,
       courseYear, // Legacy field for backwards compatibility
       course, // New structured field
@@ -37,15 +37,24 @@ exports.register = async (req, res) => {
     // Build full name
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
-    // Basic validation
-    if (!firstName || !lastName || !email || !password || !role) {
+    // Basic validation (role no longer required from client)
+    if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: "All required fields must be filled." });
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@ua\.edu\.ph$/i;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Please use a valid school email (@ua.edu.ph)." });
+    // Email validation and role auto-detection
+    const emailLower = email.toLowerCase().trim();
+    let detectedRole;
+    
+    // Detect role based on email pattern
+    if (emailLower.includes('.student@ua.edu.ph')) {
+      detectedRole = 'student';
+    } else if (emailLower.endsWith('@ua.edu.ph')) {
+      detectedRole = 'faculty';
+    } else {
+      return res.status(400).json({ 
+        message: "Invalid school email format. Students must use format: name.student@ua.edu.ph, Faculty must use: name@ua.edu.ph" 
+      });
     }
 
     // Password validation
@@ -57,7 +66,6 @@ exports.register = async (req, res) => {
     }
 
     // Check existing user
-    const emailLower = email.toLowerCase();
     const existingUser = await User.findOne({ email: emailLower });
     if (existingUser) {
       return res.status(400).json({ 
@@ -72,14 +80,14 @@ exports.register = async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Create user
+    // Create user with auto-detected role
     const hashedPassword = await bcrypt.hash(password, 12);
     const userObj = {
       name: fullName,
       firstName,
       lastName,
       gender,
-      role: role.toLowerCase(),
+      role: detectedRole, // Use auto-detected role, ignore any role from request body
       email: emailLower,
       password: hashedPassword,
       emailUpdates: !!emailUpdates,
@@ -124,6 +132,12 @@ exports.register = async (req, res) => {
     const user = new User(userObj);
 
     await user.save();
+    
+    // Log role detection for security monitoring
+    console.log(`🔐 New user registered - Email: ${emailLower}, Auto-detected role: ${detectedRole}`);
+    if (role && role.toLowerCase() !== detectedRole) {
+      console.warn(`⚠️ SECURITY: Client attempted to set role as "${role}" but was overridden to "${detectedRole}" based on email pattern`);
+    }
 
     // Check if there's an existing patient record with this email and link it
     try {
