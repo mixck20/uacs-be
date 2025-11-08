@@ -98,6 +98,8 @@ exports.createPatient = async (req, res) => {
         existingPatient.address = patientData.address || existingPatient.address;
         existingPatient.bloodType = patientData.bloodType || existingPatient.bloodType;
         existingPatient.courseYearSection = patientData.courseYearSection || existingPatient.courseYearSection;
+        // Patient type
+        if (patientData.patientType) existingPatient.patientType = patientData.patientType;
         // Academic info (for walk-ins)
         if (patientData.course) existingPatient.course = patientData.course;
         if (patientData.yearLevel) existingPatient.yearLevel = patientData.yearLevel;

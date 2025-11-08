@@ -102,6 +102,14 @@ const patientSchema = new mongoose.Schema({
     cellNumber: String
   },
   
+  // Patient Type Classification
+  patientType: {
+    type: String,
+    enum: ['student', 'faculty', 'staff', 'visitor'],
+    default: 'student',
+    required: false
+  },
+  
   // Academic Information (Structured - snapshot from user account)
   department: { type: String }, // Department code
   course: { type: String }, // Course code
