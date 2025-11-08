@@ -211,14 +211,14 @@ exports.register = async (req, res) => {
       res.status(201).json({ 
         message: "Registration successful. Please check your email to verify your account.",
         email: emailLower,
-        role: role.toLowerCase()
+        role: detectedRole
       });
     } catch (emailError) {
       console.error('Error sending verification email:', emailError);
       res.status(201).json({ 
         message: "Registration successful but failed to send verification email. Please contact support.",
         email: emailLower,
-        role: role.toLowerCase()
+        role: detectedRole
       });
     }
   } catch (err) {
