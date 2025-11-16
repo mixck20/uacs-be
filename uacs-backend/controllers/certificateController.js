@@ -2,6 +2,8 @@ const MedicalCertificate = require('../models/MedicalCertificate');
 const Patient = require('../models/Patient');
 const Notification = require('../models/Notification');
 const { jsPDF } = require('jspdf');
+const path = require('path');
+const fs = require('fs');
 
 // User: Request a medical certificate
 exports.requestCertificate = async (req, res) => {
@@ -189,21 +191,55 @@ exports.generateCertificatePDF = async (req, res) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
-    let yPos = 30;
+    let yPos = 20;
 
     // All text in black
     doc.setTextColor(0, 0, 0);
 
+    // Add UA Logo and Header Section
+    // Draw a box/border for the logo area
+    doc.setDrawColor(229, 29, 94); // UA red color
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPos, 30, 30);
+    
+    // Logo placeholder text inside box
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(229, 29, 94);
+    doc.text('UA', margin + 15, yPos + 17, { align: 'center' });
+    
+    // Reset text color to black
+    doc.setTextColor(0, 0, 0);
+    
+    // University Name and College Clinic Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('UNIVERSITY OF THE ASSUMPTION', margin + 35, yPos + 5);
+    doc.setFontSize(14);
+    doc.text('College Clinic', margin + 35, yPos + 12);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('San Fernando, Pampanga, Philippines', margin + 35, yPos + 18);
+    doc.text('Tel: (045) 961-0676 | clinic@ua.edu.ph', margin + 35, yPos + 23);
+    
+    // Horizontal line under header
+    doc.setDrawColor(229, 29, 94);
+    doc.setLineWidth(1);
+    doc.line(margin, yPos + 35, pageWidth - margin, yPos + 35);
+    
+    yPos = 60;
+
     // Date at top right
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
     const currentDate = new Date().toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     });
     doc.text(`Date: ${currentDate}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 25;
+    yPos += 15;
 
     // Header - MEDICAL CERTIFICATE
     doc.setFontSize(16);
