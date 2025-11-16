@@ -196,11 +196,25 @@ exports.generateCertificatePDF = async (req, res) => {
     // All text in black
     doc.setTextColor(0, 0, 0);
 
-    // Add UA Logo on upper left (simple text logo for now)
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('UA', margin, yPos);
-    yPos += 5;
+    // Try to add logo image
+    const logoPath = path.join(__dirname, '../public/ua-logo.png');
+    if (fs.existsSync(logoPath)) {
+      try {
+        const logoData = fs.readFileSync(logoPath, { encoding: 'base64' });
+        doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin, yPos - 10, 25, 25);
+      } catch (error) {
+        console.log('Could not load logo image:', error.message);
+        // Fallback to text logo
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('UA', margin, yPos);
+      }
+    } else {
+      // Fallback to text logo if image not found
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('UA', margin, yPos);
+    }
 
     // Date at top right
     doc.setFontSize(10);
@@ -211,7 +225,7 @@ exports.generateCertificatePDF = async (req, res) => {
       day: 'numeric' 
     });
     doc.text(`Date: ${currentDate}`, pageWidth - margin, 30, { align: 'right' });
-    yPos += 20;
+    yPos += 35;
 
     // Header - MEDICAL CERTIFICATE
     doc.setFontSize(16);
@@ -258,15 +272,7 @@ exports.generateCertificatePDF = async (req, res) => {
     const recommendations = certificate.recommendations || 'Rest and recovery';
     const splitRecs = doc.splitTextToSize(recommendations, pageWidth - (margin * 2));
     doc.text(splitRecs, margin, yPos);
-    yPos += (splitRecs.length * 6) + 20;
-
-    // Blank lines for additional notes
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 10;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 10;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 25;
+    yPos += (splitRecs.length * 6) + 40;
 
     // Signature section - aligned to right
     const sigStartX = pageWidth - margin - 60;
