@@ -156,6 +156,39 @@ UA Clinic Team`,
     ]
   },
   {
+    name: 'Guardian Visit Notification',
+    subject: 'Student Health Visit Notification - {{studentName}}',
+    body: `Dear {{guardianName}},
+
+This is to inform you that {{studentName}} visited the University of the Assumption Clinic on {{visitDate}} at {{visitTime}}.
+
+📋 Visit Information:
+• Reason: {{visitReason}}
+• Recommendations: {{recommendations}}
+
+{{restDaysInfo}}
+
+This notification is provided for your awareness. For detailed medical information or concerns, please contact the clinic directly or speak with your child.
+
+If you have any questions, please don't hesitate to reach out to us.
+
+University of the Assumption - College Clinic
+Contact: clinic@ua.edu.ph
+
+Note: This is an automated notification. Medical details are kept confidential as per privacy guidelines.`,
+    type: 'guardian',
+    category: 'notification',
+    variables: [
+      { name: 'guardianName', description: 'Parent/Guardian name' },
+      { name: 'studentName', description: 'Student full name' },
+      { name: 'visitDate', description: 'Date of clinic visit' },
+      { name: 'visitTime', description: 'Time of clinic visit' },
+      { name: 'visitReason', description: 'General reason for visit' },
+      { name: 'recommendations', description: 'General recommendations' },
+      { name: 'restDaysInfo', description: 'Rest days information if applicable' }
+    ]
+  },
+  {
     name: 'Clinic Announcement',
     subject: 'Important Announcement from UA Clinic',
     body: `Dear Students and Faculty,

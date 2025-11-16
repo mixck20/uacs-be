@@ -505,10 +505,160 @@ const sendExpiringMedicineAlert = async ({ itemName, expiryDate, daysUntilExpiry
   }
 };
 
+/**
+ * Send clinic visit notification to parent/guardian
+ * @param {Object} guardianContact - Guardian contact information
+ * @param {Object} visitInfo - Visit details
+ * @param {Object} studentInfo - Student information
+ */
+const sendGuardianVisitNotification = async (guardianContact, visitInfo, studentInfo) => {
+  try {
+    const { email, name } = guardianContact;
+    const { date, diagnosis, treatment, notes } = visitInfo;
+    const { fullName: studentName } = studentInfo;
+
+    // Format visit date and time
+    const visitDate = new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const visitTime = new Date(date).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    // General reason (don't expose sensitive diagnosis)
+    let visitReason = 'Medical consultation';
+    if (diagnosis) {
+      // Use general categories instead of specific diagnosis
+      if (diagnosis.toLowerCase().includes('fever') || diagnosis.toLowerCase().includes('cold') || diagnosis.toLowerCase().includes('flu')) {
+        visitReason = 'Common illness (fever/cold/flu)';
+      } else if (diagnosis.toLowerCase().includes('injury') || diagnosis.toLowerCase().includes('wound')) {
+        visitReason = 'Minor injury or wound care';
+      } else if (diagnosis.toLowerCase().includes('checkup') || diagnosis.toLowerCase().includes('physical')) {
+        visitReason = 'Routine checkup';
+      } else if (diagnosis.toLowerCase().includes('headache') || diagnosis.toLowerCase().includes('pain')) {
+        visitReason = 'Pain or discomfort';
+      } else {
+        visitReason = 'Medical consultation';
+      }
+    }
+
+    // General recommendations (avoid specific medical details)
+    let recommendations = 'Follow clinic recommendations';
+    if (treatment) {
+      if (treatment.toLowerCase().includes('rest')) {
+        recommendations = 'Rest and recovery advised';
+      } else if (treatment.toLowerCase().includes('medicine') || treatment.toLowerCase().includes('medication')) {
+        recommendations = 'Medication prescribed, follow dosage instructions';
+      } else if (treatment.toLowerCase().includes('follow') || treatment.toLowerCase().includes('return')) {
+        recommendations = 'Follow-up visit may be needed';
+      }
+    }
+
+    // Rest days info if mentioned
+    let restDaysInfo = '';
+    if (notes && (notes.toLowerCase().includes('rest') || notes.toLowerCase().includes('day off'))) {
+      const daysMatch = notes.match(/(\d+)\s*day/i);
+      if (daysMatch) {
+        restDaysInfo = `• Clinic advised ${daysMatch[1]} day(s) of rest\n`;
+      } else {
+        restDaysInfo = '• Rest recommended, duration as per clinic advice\n';
+      }
+    }
+
+    const mailOptions = {
+      from: `"UA Clinic" <${SMTP_USER}>`,
+      to: email,
+      subject: `Student Health Visit Notification - ${studentName}`,
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #e51d5e 0%, #c41952 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">University of the Assumption</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">College Clinic - Visit Notification</p>
+          </div>
+
+          <div style="padding: 40px 30px;">
+            <p style="font-size: 16px; color: #333; margin: 0 0 20px 0;">Dear ${name},</p>
+
+            <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 25px 0;">
+              This is to inform you that <strong>${studentName}</strong> visited the University Clinic.
+            </p>
+
+            <div style="background: #f8f9fa; border-left: 4px solid #e51d5e; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #e51d5e; margin: 0 0 15px 0; font-size: 18px;">📋 Visit Information</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; font-weight: 500;">Date:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: 600;">${visitDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666; font-weight: 500;">Time:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: 600;">${visitTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666; font-weight: 500;">Reason:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: 600;">${visitReason}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666; font-weight: 500;">Recommendations:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: 600;">${recommendations}</td>
+                </tr>
+              </table>
+
+              ${restDaysInfo ? `
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-top: 15px;">
+                  <p style="margin: 0; color: #856404; font-size: 14px;">
+                    <strong>⚠️ Rest Period:</strong><br/>
+                    ${restDaysInfo}
+                  </p>
+                </div>
+              ` : ''}
+            </div>
+
+            <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; color: #1565C0; font-size: 14px; line-height: 1.6;">
+                <strong>ℹ️ Privacy Notice:</strong> This notification is provided for your awareness. Detailed medical information is kept confidential as per privacy guidelines. For specific concerns, please contact the clinic directly or speak with your child.
+              </p>
+            </div>
+
+            <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 25px 0 0 0;">
+              If you have any questions or concerns, please don't hesitate to contact the clinic during office hours.
+            </p>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+              <p style="color: #666; font-size: 14px; margin: 5px 0;">
+                <strong>University of the Assumption - College Clinic</strong>
+              </p>
+              <p style="color: #666; font-size: 14px; margin: 5px 0;">
+                Contact: clinic@ua.edu.ph
+              </p>
+              <p style="color: #999; font-size: 12px; margin: 15px 0 0 0; font-style: italic;">
+                This is an automated notification. Please do not reply to this email.
+              </p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 Guardian notification sent to ${email} for student ${studentName}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending guardian notification:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendLowStockAlert,
   sendPasswordChangeVerification,
-  sendExpiringMedicineAlert
+  sendExpiringMedicineAlert,
+  sendGuardianVisitNotification
 };

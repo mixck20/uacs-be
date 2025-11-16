@@ -102,6 +102,15 @@ const patientSchema = new mongoose.Schema({
     cellNumber: String
   },
   
+  // Guardian/Parent Contact (for notification purposes)
+  guardianContact: {
+    name: String,
+    relationship: String,
+    email: String,
+    phone: String,
+    notifyOnVisit: { type: Boolean, default: false } // Enable/disable visit notifications
+  },
+  
   // Patient Type Classification
   patientType: {
     type: String,

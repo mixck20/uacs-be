@@ -429,6 +429,25 @@ exports.addVisitRecord = async (req, res) => {
       }
     }
     
+    // Send email to guardian if student and notification enabled
+    if (patient.patientType === 'student' && 
+        patient.guardianContact && 
+        patient.guardianContact.email && 
+        patient.guardianContact.notifyOnVisit) {
+      try {
+        const { sendGuardianVisitNotification } = require('../utils/emailService');
+        await sendGuardianVisitNotification(
+          patient.guardianContact,
+          visitData,
+          { fullName: patient.fullName }
+        );
+        console.log(`✅ Guardian notification sent to ${patient.guardianContact.email} for student ${patient.fullName}`);
+      } catch (guardianEmailError) {
+        console.error('❌ Failed to send guardian notification:', guardianEmailError.message);
+        // Don't fail the request if guardian email fails
+      }
+    }
+    
     res.json({ 
       message: 'Visit record added successfully', 
       patient,
