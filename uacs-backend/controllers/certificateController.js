@@ -1,5 +1,6 @@
 const MedicalCertificate = require('../models/MedicalCertificate');
 const Patient = require('../models/Patient');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { jsPDF } = require('jspdf');
 const path = require('path');
@@ -38,6 +39,24 @@ exports.requestCertificate = async (req, res) => {
     });
 
     await certificate.save();
+
+    // Create notification for clinic staff
+    const clinicStaff = await User.find({ role: { $in: ['clinic_staff', 'admin'] } });
+    const notificationPromises = clinicStaff.map(staff => {
+      const notification = new Notification({
+        userId: staff._id,
+        type: 'general',
+        title: 'New Medical Certificate Request',
+        message: `${patient.fullName} has requested a medical certificate`,
+        data: {
+          certificateId: certificate._id,
+          patientName: patient.fullName,
+          purpose: purpose
+        }
+      });
+      return notification.save();
+    });
+    await Promise.all(notificationPromises);
 
     res.status(201).json({
       message: 'Medical certificate request submitted successfully',

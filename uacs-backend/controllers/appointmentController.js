@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const Patient = require('../models/Patient');
+const Notification = require('../models/Notification');
 const TimeSlot = require('../models/TimeSlot');
 const { createMeetLink, deleteMeetLink, updateMeetLink } = require('../utils/googleMeetService');
 const { createNotification } = require('./notificationController');
@@ -151,6 +152,26 @@ exports.createAppointment = async (req, res) => {
     const newAppointment = await appointment.save();
     
     await newAppointment.populate('userId', 'name email');
+    
+    // Create notification for clinic staff
+    const clinicStaff = await User.find({ role: { $in: ['clinic_staff', 'admin'] } });
+    const notificationPromises = clinicStaff.map(staff => {
+      const notification = new Notification({
+        userId: staff._id,
+        type: 'general',
+        title: 'New Appointment Request',
+        message: `${newAppointment.userId?.name || 'A patient'} has requested a ${newAppointment.type} appointment for ${newAppointment.date}`,
+        data: {
+          appointmentId: newAppointment._id,
+          patientName: newAppointment.userId?.name,
+          appointmentType: newAppointment.type,
+          appointmentDate: newAppointment.date,
+          appointmentTime: newAppointment.time
+        }
+      });
+      return notification.save();
+    });
+    await Promise.all(notificationPromises);
     
     // Log appointment creation
     await createAuditLog({
