@@ -153,6 +153,14 @@ exports.createAppointment = async (req, res) => {
     
     await newAppointment.populate('userId', 'name email');
     
+    // Format date and time for notification
+    const appointmentDate = new Date(newAppointment.date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    const appointmentTime = newAppointment.time || 'Time not specified';
+    
     // Create notification for clinic staff
     const clinicStaff = await User.find({ role: { $in: ['clinic_staff', 'admin'] } });
     const notificationPromises = clinicStaff.map(staff => {
@@ -160,7 +168,7 @@ exports.createAppointment = async (req, res) => {
         userId: staff._id,
         type: 'general',
         title: 'New Appointment Request',
-        message: `${newAppointment.userId?.name || 'A patient'} has requested a ${newAppointment.type} appointment for ${newAppointment.date}`,
+        message: `${newAppointment.userId?.name || 'A patient'} has requested a ${newAppointment.type} appointment for ${appointmentDate} at ${appointmentTime}`,
         data: {
           appointmentId: newAppointment._id,
           patientName: newAppointment.userId?.name,

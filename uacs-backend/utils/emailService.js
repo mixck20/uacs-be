@@ -517,16 +517,11 @@ const sendGuardianVisitNotification = async (guardianContact, visitInfo, student
     const { date, diagnosis, treatment, notes } = visitInfo;
     const { fullName: studentName } = studentInfo;
 
-    // Format visit date and time
+    // Format visit date (don't include time as visits are dated but not timed)
     const visitDate = new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    });
-    const visitTime = new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
     });
 
     // General reason (don't expose sensitive diagnosis)
@@ -594,10 +589,6 @@ const sendGuardianVisitNotification = async (guardianContact, visitInfo, student
                 <tr>
                   <td style="padding: 8px 0; color: #666; font-weight: 500;">Date:</td>
                   <td style="padding: 8px 0; color: #333; font-weight: 600;">${visitDate}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #666; font-weight: 500;">Time:</td>
-                  <td style="padding: 8px 0; color: #333; font-weight: 600;">${visitTime}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #666; font-weight: 500;">Reason:</td>
