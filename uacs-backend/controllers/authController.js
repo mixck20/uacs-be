@@ -50,10 +50,10 @@ exports.register = async (req, res) => {
     if (emailLower.includes('.student@ua.edu.ph')) {
       detectedRole = 'student';
     } else if (emailLower.endsWith('@ua.edu.ph')) {
-      detectedRole = 'faculty';
+      detectedRole = 'employee';
     } else {
       return res.status(400).json({ 
-        message: "Invalid school email format. Students must use format: name.student@ua.edu.ph, Faculty must use: name@ua.edu.ph" 
+        message: "Invalid school email format. Students must use format: name.student@ua.edu.ph, Employees must use: name@ua.edu.ph" 
       });
     }
 
@@ -131,22 +131,22 @@ exports.register = async (req, res) => {
       
       console.log(`👨‍🎓 Student registration - Course: ${course}, Year: ${yearLevel}, Department: ${autoDepartment || 'N/A'}`);
       
-    } else if (detectedRole === 'faculty') {
-      // FACULTY: Require department, IGNORE any course/yearLevel/section
+    } else if (detectedRole === 'employee') {
+      // EMPLOYEE: Require department, IGNORE any course/yearLevel/section
       if (!department) {
         return res.status(400).json({ 
-          message: "Faculty must provide a department" 
+          message: "Employees must provide a department" 
         });
       }
       
       userObj.department = department.trim();
       
-      // Explicitly ignore course, yearLevel, section for faculty
+      // Explicitly ignore course, yearLevel, section for employees
       if (course || yearLevel || section) {
-        console.warn(`⚠️ SECURITY: Faculty user attempted to provide course/yearLevel/section - these fields were ignored`);
+        console.warn(`⚠️ SECURITY: Employee user attempted to provide course/yearLevel/section - these fields were ignored`);
       }
       
-      console.log(`👨‍🏫 Faculty registration - Department: ${department}`);
+      console.log(`👨‍💼 Employee registration - Department: ${department}`);
     }
 
     const user = new User(userObj);

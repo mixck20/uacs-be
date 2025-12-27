@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
     courseYear: { type: String }, // Deprecated: Use course + yearLevel + section instead
     role: { 
       type: String, 
-      enum: ["student", "faculty", "staff", "admin", "clinic_staff"],
+      enum: ["student", "employee", "admin", "clinic_staff"],
       required: true,
       lowercase: true 
     },

@@ -24,7 +24,7 @@ const isAuthenticated = async (req, res, next) => {
 };
 
 const isClinic = (req, res, next) => {
-  const allowedRoles = ['staff', 'admin', 'clinic_staff', 'clinic', 'CLINIC', 'ADMIN'];
+  const allowedRoles = ['admin', 'clinic_staff', 'clinic', 'CLINIC', 'ADMIN'];
   const userRole = (req.user.role || '').toLowerCase();
   
   if (!allowedRoles.includes(userRole)) {

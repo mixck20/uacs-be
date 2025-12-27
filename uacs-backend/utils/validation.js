@@ -145,7 +145,7 @@ const validateRegistrationData = (data) => {
   }
 
   // Validate role
-  const validRoles = ['student', 'staff', 'admin'];
+  const validRoles = ['student', 'employee', 'admin'];
   if (data.role && !validRoles.includes(data.role)) {
     errors.push('Invalid role');
   }

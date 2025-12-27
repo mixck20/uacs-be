@@ -74,12 +74,12 @@ exports.sendEmail = async (req, res) => {
       
       if (recipientGroup === 'students') {
         users = await User.find({ emailUpdates: true, role: 'student' }).select('email firstName lastName role');
-      } else if (recipientGroup === 'faculty') {
-        users = await User.find({ emailUpdates: true, role: 'faculty' }).select('email firstName lastName role');
+      } else if (recipientGroup === 'employees') {
+        users = await User.find({ emailUpdates: true, role: 'employee' }).select('email firstName lastName role');
       } else {
         users = await User.find({ 
           emailUpdates: true, 
-          role: { $in: ['student', 'faculty'] }
+          role: { $in: ['student', 'employee'] }
         }).select('email firstName lastName role');
       }
       
@@ -337,7 +337,7 @@ exports.getEmailStats = async (req, res) => {
     
     const allPatients = await Patient.find({ emailUpdates: true }).populate('userId', 'role');
     const students = allPatients.filter(p => p.userId && p.userId.role === 'student').length;
-    const faculty = allPatients.filter(p => p.userId && p.userId.role === 'faculty').length;
+    const employees = allPatients.filter(p => p.userId && p.userId.role === 'employee').length;
 
     res.json({
       totalEmails,
@@ -348,7 +348,7 @@ exports.getEmailStats = async (req, res) => {
       totalOpened,
       openRate,
       studentsWithEmail: students,
-      facultyWithEmail: faculty
+      employeesWithEmail: employees
     });
   } catch (error) {
     console.error('Error getting email stats:', error);

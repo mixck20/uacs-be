@@ -13,7 +13,7 @@ const emailSchema = new mongoose.Schema({
   },
   recipientGroup: {
     type: String,
-    enum: ['students', 'faculty', 'both', null]
+    enum: ['students', 'employees', 'both', null]
   },
   recipients: [{
     email: String,

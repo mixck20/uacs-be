@@ -8,12 +8,12 @@ async function checkEmailUsers() {
     console.log('Connected to MongoDB');
 
     const studentsWithEmail = await User.countDocuments({ role: 'student', emailUpdates: true });
-    const facultyWithEmail = await User.countDocuments({ role: 'faculty', emailUpdates: true });
-    const totalWithEmail = studentsWithEmail + facultyWithEmail;
+    const employeesWithEmail = await User.countDocuments({ role: 'employee', emailUpdates: true });
+    const totalWithEmail = studentsWithEmail + employeesWithEmail;
 
     console.log('\n📧 Email Recipients Status:');
     console.log(`Students with email updates: ${studentsWithEmail}`);
-    console.log(`Faculty with email updates: ${facultyWithEmail}`);
+    console.log(`Employees with email updates: ${employeesWithEmail}`);
     console.log(`Total users with email updates: ${totalWithEmail}`);
 
     if (totalWithEmail === 0) {

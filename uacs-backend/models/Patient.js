@@ -114,7 +114,7 @@ const patientSchema = new mongoose.Schema({
   // Patient Type Classification
   patientType: {
     type: String,
-    enum: ['student', 'faculty', 'staff', 'visitor'],
+    enum: ['student', 'employee', 'visitor'],
     default: 'student',
     required: false
   },
