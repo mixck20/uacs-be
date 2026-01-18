@@ -217,22 +217,25 @@ exports.generateCertificatePDF = async (req, res) => {
 
     // Try to add logo image
     const logoPath = path.join(__dirname, '../public/ua-logo.png');
-    if (fs.existsSync(logoPath)) {
-      try {
+    try {
+      if (fs.existsSync(logoPath)) {
         const logoData = fs.readFileSync(logoPath, { encoding: 'base64' });
-        doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin, yPos - 10, 25, 25);
-      } catch (error) {
-        console.log('Could not load logo image:', error.message);
+        // Make logo larger: 40x40 instead of 25x25
+        doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin - 5, yPos - 15, 40, 40);
+        console.log('Logo added successfully to PDF');
+      } else {
+        console.log('Logo file not found at:', logoPath);
         // Fallback to text logo
-        doc.setFontSize(14);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text('UA', margin, yPos);
+        doc.text('UA', margin + 5, yPos);
       }
-    } else {
-      // Fallback to text logo if image not found
-      doc.setFontSize(14);
+    } catch (error) {
+      console.error('Error loading logo image:', error.message);
+      // Fallback to text logo
+      doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text('UA', margin, yPos);
+      doc.text('UA', margin + 5, yPos);
     }
 
     // Date at top right
