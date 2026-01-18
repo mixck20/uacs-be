@@ -238,8 +238,8 @@ exports.generateCertificatePDF = async (req, res) => {
     
     try {
       if (logoData) {
-        // Make logo larger: 40x40 instead of 25x25
-        doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin - 5, yPos - 15, 40, 40);
+        // Make logo smaller: 25x25
+        doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin - 5, yPos - 15, 25, 25);
         console.log('✅ Logo added successfully to PDF');
       } else {
         console.log('⚠️ Logo file not found in any expected location');
