@@ -215,23 +215,42 @@ exports.generateCertificatePDF = async (req, res) => {
     // All text in black
     doc.setTextColor(0, 0, 0);
 
-    // Try to add logo image
-    const logoPath = path.join(__dirname, '../public/ua-logo.png');
+    // Try to add logo image - handle both local and production paths
+    let logoData = null;
+    let logoPaths = [
+      path.join(__dirname, '../public/ua-logo.png'),
+      path.join(__dirname, '../../public/ua-logo.png'),
+      path.join(process.cwd(), 'public/ua-logo.png'),
+      path.join(process.cwd(), 'uacs-backend/public/ua-logo.png'),
+    ];
+    
+    for (const logoPath of logoPaths) {
+      try {
+        if (fs.existsSync(logoPath)) {
+          logoData = fs.readFileSync(logoPath, { encoding: 'base64' });
+          console.log('✅ Logo found at:', logoPath);
+          break;
+        }
+      } catch (e) {
+        // Continue to next path
+      }
+    }
+    
     try {
-      if (fs.existsSync(logoPath)) {
-        const logoData = fs.readFileSync(logoPath, { encoding: 'base64' });
+      if (logoData) {
         // Make logo larger: 40x40 instead of 25x25
         doc.addImage(`data:image/png;base64,${logoData}`, 'PNG', margin - 5, yPos - 15, 40, 40);
-        console.log('Logo added successfully to PDF');
+        console.log('✅ Logo added successfully to PDF');
       } else {
-        console.log('Logo file not found at:', logoPath);
+        console.log('⚠️ Logo file not found in any expected location');
+        console.log('Tried paths:', logoPaths);
         // Fallback to text logo
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text('UA', margin + 5, yPos);
       }
     } catch (error) {
-      console.error('Error loading logo image:', error.message);
+      console.error('❌ Error adding logo image:', error.message);
       // Fallback to text logo
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
