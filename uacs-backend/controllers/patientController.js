@@ -761,52 +761,81 @@ exports.bulkImportPatients = async (req, res) => {
       try {
         const patientData = patients[i];
         
+        console.log(`Processing row ${i + 2}:`, patientData);
+        
+        // Normalize field names to camelCase (handle case-insensitive input)
+        const normalizeFields = (obj) => {
+          const normalized = {};
+          for (const [key, value] of Object.entries(obj)) {
+            const lowerKey = key.toLowerCase();
+            // Map common field variations to camelCase
+            if (lowerKey === 'surname' || lowerKey === 'last name' || lowerKey === 'lastname') {
+              normalized.surname = value;
+            } else if (lowerKey === 'firstname' || lowerKey === 'first name') {
+              normalized.firstName = value;
+            } else if (lowerKey === 'middlename' || lowerKey === 'middle name') {
+              normalized.middleName = value;
+            } else if (lowerKey === 'dateofbirth' || lowerKey === 'date of birth' || lowerKey === 'dob') {
+              normalized.dateOfBirth = value;
+            } else if (lowerKey === 'gender' || lowerKey === 'sex') {
+              normalized.gender = value;
+            } else {
+              // Keep other fields as-is
+              normalized[key] = value;
+            }
+          }
+          return normalized;
+        };
+        
+        const normalizedData = normalizeFields(patientData);
+        
         // Validate required fields
-        if (!patientData.surname || !patientData.firstName || !patientData.dateOfBirth || !patientData.gender) {
+        if (!normalizedData.surname || !normalizedData.firstName || !normalizedData.dateOfBirth || !normalizedData.gender) {
           results.skipped++;
           results.errors.push({
             row: i + 2, // +2 because row 1 is header
             reason: 'Missing required fields (Surname, First Name, Date of Birth, Gender)',
-            email: patientData.email || 'N/A'
+            email: normalizedData.email || patientData.email || 'N/A'
           });
+          console.log(`Row ${i + 2} validation failed:`, normalizedData);
           continue;
         }
 
         // Construct full name
-        const fullName = `${patientData.surname}, ${patientData.firstName}${patientData.middleName ? ' ' + patientData.middleName : ''}`;
+        const fullName = `${normalizedData.surname}, ${normalizedData.firstName}${normalizedData.middleName ? ' ' + normalizedData.middleName : ''}`;
 
         // Check if patient exists by email
         let patient;
-        if (patientData.email) {
-          patient = await Patient.findOne({ email: patientData.email.toLowerCase() });
+        if (normalizedData.email) {
+          patient = await Patient.findOne({ email: normalizedData.email.toLowerCase() });
         }
 
         // Prepare patient payload
         const payload = {
-          surname: patientData.surname.trim(),
-          firstName: patientData.firstName.trim(),
-          middleName: (patientData.middleName || '').trim(),
+          surname: normalizedData.surname.trim(),
+          firstName: normalizedData.firstName.trim(),
+          middleName: (normalizedData.middleName || '').trim(),
           fullName: fullName,
-          email: patientData.email ? patientData.email.trim().toLowerCase() : '',
-          contactNumber: patientData.contactNumber || patientData.cellNumber || '',
-          cellNumber: patientData.cellNumber || '',
-          dateOfBirth: patientData.dateOfBirth,
-          birthplace: patientData.birthplace || '',
-          gender: patientData.gender,
-          religion: patientData.religion || '',
-          address: patientData.address || '',
-          patientType: patientData.patientType || 'visitor',
-          bloodType: patientData.bloodType || '',
-          allergies: patientData.allergies || [],
-          currentMedications: patientData.currentMedications || [],
-          course: patientData.course || '',
-          yearLevel: patientData.yearLevel || '',
-          section: patientData.section || '',
-          department: patientData.department || '',
+          email: normalizedData.email ? normalizedData.email.trim().toLowerCase() : '',
+          contactNumber: normalizedData.contactNumber || normalizedData.cellNumber || '',
+          cellNumber: normalizedData.cellNumber || '',
+          dateOfBirth: normalizedData.dateOfBirth,
+          birthplace: normalizedData.birthplace || '',
+          gender: normalizedData.gender,
+          religion: normalizedData.religion || '',
+          address: normalizedData.address || '',
+          patientType: normalizedData.patientType || 'visitor',
+          bloodType: normalizedData.bloodType || '',
+          allergies: normalizedData.allergies || [],
+          currentMedications: normalizedData.currentMedications || [],
+          course: normalizedData.course || '',
+          yearLevel: normalizedData.yearLevel || '',
+          section: normalizedData.section || '',
+          department: normalizedData.department || '',
           emergencyContact: {
-            name: patientData.emergencyName || '',
-            relationship: patientData.emergencyRelationship || '',
-            phone: patientData.emergencyCel || ''
+            name: normalizedData.emergencyName || '',
+            relationship: normalizedData.emergencyRelationship || '',
+            phone: normalizedData.emergencyCel || ''
           }
         };
 
@@ -815,8 +844,8 @@ exports.bulkImportPatients = async (req, res) => {
           Object.assign(patient, payload);
           
           // Try to link to user if email matches
-          if (patientData.email) {
-            const existingUser = await User.findOne({ email: patientData.email.toLowerCase() });
+          if (normalizedData.email) {
+            const existingUser = await User.findOne({ email: normalizedData.email.toLowerCase() });
             if (existingUser) {
               patient.userId = existingUser._id;
               patient.isRegisteredUser = true;
@@ -834,8 +863,8 @@ exports.bulkImportPatients = async (req, res) => {
           const newPatient = new Patient(payload);
 
           // Try to link to user if email matches
-          if (patientData.email) {
-            const existingUser = await User.findOne({ email: patientData.email.toLowerCase() });
+          if (normalizedData.email) {
+            const existingUser = await User.findOne({ email: normalizedData.email.toLowerCase() });
             if (existingUser) {
               newPatient.userId = existingUser._id;
               newPatient.isRegisteredUser = true;
