@@ -825,7 +825,7 @@ exports.bulkImportPatients = async (req, res) => {
           religion: normalizedData.religion || '',
           address: normalizedData.address || '',
           patientType: normalizedData.patientType || 'visitor',
-          bloodType: normalizedData.bloodType || '',
+          bloodType: normalizedData.bloodType || 'Unknown',
           allergies: normalizedData.allergies || [],
           currentMedications: normalizedData.currentMedications || [],
           course: normalizedData.course || '',
