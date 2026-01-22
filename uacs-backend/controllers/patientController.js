@@ -829,8 +829,9 @@ exports.bulkImportPatients = async (req, res) => {
           allergies: normalizedData.allergies || [],
           currentMedications: normalizedData.currentMedications || [],
           course: normalizedData.course || '',
-          yearLevel: normalizedData.yearLevel || '',
-          section: normalizedData.section || '',
+          // Convert "N/A", empty, or invalid numeric values to null
+          yearLevel: (normalizedData.yearLevel && normalizedData.yearLevel !== 'N/A' && !isNaN(normalizedData.yearLevel)) ? parseInt(normalizedData.yearLevel) : null,
+          section: (normalizedData.section && normalizedData.section !== 'N/A') ? normalizedData.section : '',
           department: normalizedData.department || '',
           emergencyContact: {
             name: normalizedData.emergencyName || '',
