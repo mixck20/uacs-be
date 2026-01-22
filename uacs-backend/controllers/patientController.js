@@ -849,6 +849,19 @@ exports.bulkImportPatients = async (req, res) => {
           patient = await Patient.findOne({ email: normalizedData.email.toLowerCase() });
         }
 
+        // Auto-detect patientType from email if not explicitly provided
+        let detectedPatientType = normalizedData.patientType || 'visitor';
+        if (!normalizedData.patientType && normalizedData.email) {
+          const emailLower = normalizedData.email.toLowerCase();
+          if (emailLower.includes('.student@ua.edu.ph')) {
+            detectedPatientType = 'student';
+          } else if (emailLower.endsWith('@ua.edu.ph')) {
+            detectedPatientType = 'employee';
+          } else {
+            detectedPatientType = 'visitor';
+          }
+        }
+
         // Prepare patient payload
         const payload = {
           surname: normalizedData.surname.trim(),
@@ -863,7 +876,7 @@ exports.bulkImportPatients = async (req, res) => {
           gender: normalizedData.gender,
           religion: normalizedData.religion || '',
           address: normalizedData.address || '',
-          patientType: normalizedData.patientType || 'visitor',
+          patientType: detectedPatientType,
           bloodType: normalizedData.bloodType || 'Unknown',
           allergies: normalizedData.allergies || [],
           currentMedications: normalizedData.currentMedications || [],
