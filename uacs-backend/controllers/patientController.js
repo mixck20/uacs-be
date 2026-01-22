@@ -775,10 +775,49 @@ exports.bulkImportPatients = async (req, res) => {
               normalized.firstName = value;
             } else if (lowerKey === 'middlename' || lowerKey === 'middle name') {
               normalized.middleName = value;
+            } else if (lowerKey === 'fullname' || lowerKey === 'full name') {
+              // Extract surname and firstName from fullName if they're missing
+              if (!normalized.surname || !normalized.firstName) {
+                const parts = value.split(',').map(p => p.trim());
+                if (parts.length === 2) {
+                  if (!normalized.surname) normalized.surname = parts[0];
+                  const nameParts = parts[1].split(' ');
+                  if (!normalized.firstName) normalized.firstName = nameParts[0];
+                  if (nameParts.length > 1) normalized.middleName = nameParts.slice(1).join(' ');
+                }
+              }
             } else if (lowerKey === 'dateofbirth' || lowerKey === 'date of birth' || lowerKey === 'dob') {
               normalized.dateOfBirth = value;
             } else if (lowerKey === 'gender' || lowerKey === 'sex') {
               normalized.gender = value;
+            } else if (lowerKey === 'email') {
+              normalized.email = value;
+            } else if (lowerKey === 'cellnumber' || lowerKey === 'cell number' || lowerKey === 'phone' || lowerKey === 'contact number') {
+              normalized.cellNumber = value;
+            } else if (lowerKey === 'birthplace') {
+              normalized.birthplace = value;
+            } else if (lowerKey === 'religion') {
+              normalized.religion = value;
+            } else if (lowerKey === 'address') {
+              normalized.address = value;
+            } else if (lowerKey === 'patienttype' || lowerKey === 'patient type') {
+              normalized.patientType = value;
+            } else if (lowerKey === 'bloodtype' || lowerKey === 'blood type') {
+              normalized.bloodType = value;
+            } else if (lowerKey === 'course') {
+              normalized.course = value;
+            } else if (lowerKey === 'yearlevel' || lowerKey === 'year level') {
+              normalized.yearLevel = value;
+            } else if (lowerKey === 'section') {
+              normalized.section = value;
+            } else if (lowerKey === 'department') {
+              normalized.department = value;
+            } else if (lowerKey === 'emergencyname' || lowerKey === 'emergency contact') {
+              normalized.emergencyName = value;
+            } else if (lowerKey === 'emergencyrelationship' || lowerKey === 'emergency relationship') {
+              normalized.emergencyRelationship = value;
+            } else if (lowerKey === 'emergencycel' || lowerKey === 'emergency phone') {
+              normalized.emergencyCel = value;
             } else {
               // Keep other fields as-is
               normalized[key] = value;
