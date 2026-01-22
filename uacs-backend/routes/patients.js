@@ -7,6 +7,9 @@ const patientController = require('../controllers/patientController');
 router.get('/dashboard', isAuthenticated, patientController.getUserDashboard);
 router.get('/my-records', isAuthenticated, patientController.getPatientByUserId);
 
+// Bulk import route (before other /:id routes to avoid conflicts)
+router.post('/bulk-import', isAuthenticated, isClinic, patientController.bulkImportPatients);
+
 // Clinic staff routes - apply middleware to each route individually
 router.route('/')
   .get(isAuthenticated, isClinic, patientController.getAllPatients)

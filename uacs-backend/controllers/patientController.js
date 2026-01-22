@@ -735,3 +735,149 @@ exports.getUserDashboard = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Bulk import patients from CSV data
+exports.bulkImportPatients = async (req, res) => {
+  try {
+    const { patients } = req.body;
+
+    if (!patients || !Array.isArray(patients) || patients.length === 0) {
+      return res.status(400).json({ 
+        message: 'Invalid data. Please provide an array of patient records.',
+        errors: []
+      });
+    }
+
+    const User = require('../models/User');
+    const results = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    // Process each patient record
+    for (let i = 0; i < patients.length; i++) {
+      try {
+        const patientData = patients[i];
+        
+        // Validate required fields
+        if (!patientData.surname || !patientData.firstName || !patientData.dateOfBirth || !patientData.gender) {
+          results.skipped++;
+          results.errors.push({
+            row: i + 2, // +2 because row 1 is header
+            reason: 'Missing required fields (Surname, First Name, Date of Birth, Gender)',
+            email: patientData.email || 'N/A'
+          });
+          continue;
+        }
+
+        // Construct full name
+        const fullName = `${patientData.surname}, ${patientData.firstName}${patientData.middleName ? ' ' + patientData.middleName : ''}`;
+
+        // Check if patient exists by email
+        let patient;
+        if (patientData.email) {
+          patient = await Patient.findOne({ email: patientData.email.toLowerCase() });
+        }
+
+        // Prepare patient payload
+        const payload = {
+          surname: patientData.surname.trim(),
+          firstName: patientData.firstName.trim(),
+          middleName: (patientData.middleName || '').trim(),
+          fullName: fullName,
+          email: patientData.email ? patientData.email.trim().toLowerCase() : '',
+          contactNumber: patientData.contactNumber || patientData.cellNumber || '',
+          cellNumber: patientData.cellNumber || '',
+          dateOfBirth: patientData.dateOfBirth,
+          birthplace: patientData.birthplace || '',
+          gender: patientData.gender,
+          religion: patientData.religion || '',
+          address: patientData.address || '',
+          patientType: patientData.patientType || 'visitor',
+          bloodType: patientData.bloodType || '',
+          allergies: patientData.allergies || [],
+          currentMedications: patientData.currentMedications || [],
+          course: patientData.course || '',
+          yearLevel: patientData.yearLevel || '',
+          section: patientData.section || '',
+          department: patientData.department || '',
+          emergencyContact: {
+            name: patientData.emergencyName || '',
+            relationship: patientData.emergencyRelationship || '',
+            phone: patientData.emergencyCel || ''
+          }
+        };
+
+        if (patient) {
+          // Update existing patient
+          Object.assign(patient, payload);
+          
+          // Try to link to user if email matches
+          if (patientData.email) {
+            const existingUser = await User.findOne({ email: patientData.email.toLowerCase() });
+            if (existingUser) {
+              patient.userId = existingUser._id;
+              patient.isRegisteredUser = true;
+              if (existingUser.department) patient.department = existingUser.department;
+              if (existingUser.course) patient.course = existingUser.course;
+              if (existingUser.yearLevel) patient.yearLevel = existingUser.yearLevel;
+              if (existingUser.section) patient.section = existingUser.section;
+            }
+          }
+
+          await patient.save();
+          results.updated++;
+        } else {
+          // Create new patient
+          const newPatient = new Patient(payload);
+
+          // Try to link to user if email matches
+          if (patientData.email) {
+            const existingUser = await User.findOne({ email: patientData.email.toLowerCase() });
+            if (existingUser) {
+              newPatient.userId = existingUser._id;
+              newPatient.isRegisteredUser = true;
+              if (existingUser.department) newPatient.department = existingUser.department;
+              if (existingUser.course) newPatient.course = existingUser.course;
+              if (existingUser.yearLevel) newPatient.yearLevel = existingUser.yearLevel;
+              if (existingUser.section) newPatient.section = existingUser.section;
+            }
+          }
+
+          await newPatient.save();
+          results.created++;
+        }
+      } catch (error) {
+        results.skipped++;
+        results.errors.push({
+          row: i + 2,
+          reason: error.message,
+          email: patients[i].email || 'N/A'
+        });
+      }
+    }
+
+    // Log bulk import
+    await createAuditLog({
+      user: req.user,
+      action: 'BULK_IMPORT',
+      resource: 'Patient',
+      description: `Bulk imported patients: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped`,
+      req,
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json({
+      message: `Bulk import completed successfully`,
+      results
+    });
+  } catch (error) {
+    console.error('Error in bulk import:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to bulk import patients',
+      results: { created: 0, updated: 0, skipped: 0, errors: [] }
+    });
+  }
+};
