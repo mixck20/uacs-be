@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
+const backupController = require('../controllers/backupController');
 
 // Middleware to check if user is admin
 const isAdmin = (req, res, next) => {
@@ -11,11 +12,11 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-// Apply auth and admin check to all routes
+// Apply auth to all routes
 router.use(auth);
-router.use(isAdmin);
 
 // ==================== USER MANAGEMENT ====================
+router.use(isAdmin);
 router.get('/users', adminController.getAllUsers);
 router.get('/users/:id', adminController.getUserById);
 router.post('/users', adminController.createUser);
@@ -36,5 +37,10 @@ router.get('/analytics/export', adminController.exportAnalytics);
 // ==================== FEEDBACK ====================
 router.get('/feedback', adminController.getAllFeedback);
 router.put('/feedback/:id', adminController.updateFeedbackStatus);
+
+// ==================== SYSTEM BACKUP/RESTORE ====================
+// Allow clinic staff to backup, only admin can restore
+router.get('/backup/export', backupController.backupSystemData);
+router.post('/backup/restore', backupController.restoreSystemData);
 
 module.exports = router;
