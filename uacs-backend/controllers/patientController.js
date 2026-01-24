@@ -963,3 +963,191 @@ exports.bulkImportPatients = async (req, res) => {
     });
   }
 };
+
+// Backup all patients to JSON
+exports.backupPatients = async (req, res) => {
+  try {
+    console.log('📦 Starting patient data backup...');
+    
+    // Fetch all non-archived patients with populated user data
+    const patients = await Patient.find({ isArchived: false })
+      .populate('userId', 'firstName lastName email role department course yearLevel section')
+      .lean()
+      .exec();
+
+    console.log(`✅ Fetched ${patients.length} patients for backup`);
+
+    // Create backup object with metadata
+    const backup = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      totalRecords: patients.length,
+      patients: patients
+    };
+
+    // Set response headers for download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="patient-backup-${new Date().toISOString().split('T')[0]}.json"`);
+    
+    // Log backup action
+    await createAuditLog({
+      user: req.user,
+      action: 'BACKUP',
+      resource: 'Patient',
+      description: `Backed up ${patients.length} patient records`,
+      req,
+      status: 'SUCCESS'
+    });
+
+    res.status(200).json(backup);
+  } catch (error) {
+    console.error('Error in patient backup:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to backup patients',
+      error: error.message
+    });
+  }
+};
+
+// Restore patients from backup JSON
+exports.restorePatients = async (req, res) => {
+  try {
+    const { backup } = req.body;
+
+    if (!backup || !backup.patients || !Array.isArray(backup.patients)) {
+      return res.status(400).json({ 
+        message: 'Invalid backup format. Expected object with "patients" array.'
+      });
+    }
+
+    console.log(`📦 Starting patient data restore from backup with ${backup.patients.length} records...`);
+
+    const results = {
+      restored: 0,
+      updated: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    // Process each patient record
+    for (let i = 0; i < backup.patients.length; i++) {
+      try {
+        const patientData = backup.patients[i];
+
+        // Skip if critical fields are missing
+        if (!patientData.fullName) {
+          results.skipped++;
+          results.errors.push({
+            row: i + 1,
+            reason: 'Missing fullName field',
+            data: patientData
+          });
+          continue;
+        }
+
+        // Check if patient exists (by email if available, otherwise by fullName)
+        let existingPatient = null;
+        if (patientData.email) {
+          existingPatient = await Patient.findOne({ email: patientData.email.toLowerCase() });
+        } else {
+          existingPatient = await Patient.findOne({ fullName: patientData.fullName });
+        }
+
+        if (existingPatient) {
+          // Update existing patient
+          const updateData = {
+            surname: patientData.surname || existingPatient.surname,
+            firstName: patientData.firstName || existingPatient.firstName,
+            middleName: patientData.middleName || existingPatient.middleName,
+            email: patientData.email ? patientData.email.toLowerCase() : existingPatient.email,
+            contactNumber: patientData.contactNumber || existingPatient.contactNumber,
+            cellNumber: patientData.cellNumber || existingPatient.cellNumber,
+            dateOfBirth: patientData.dateOfBirth || existingPatient.dateOfBirth,
+            birthplace: patientData.birthplace || existingPatient.birthplace,
+            gender: patientData.gender || existingPatient.gender,
+            religion: patientData.religion || existingPatient.religion,
+            address: patientData.address || existingPatient.address,
+            patientType: patientData.patientType || existingPatient.patientType,
+            department: patientData.department || existingPatient.department,
+            course: patientData.course || existingPatient.course,
+            yearLevel: patientData.yearLevel || existingPatient.yearLevel,
+            section: patientData.section || existingPatient.section,
+            bloodType: patientData.bloodType || existingPatient.bloodType,
+            allergies: patientData.allergies || existingPatient.allergies,
+            fatherName: patientData.fatherName || existingPatient.fatherName,
+            motherName: patientData.motherName || existingPatient.motherName,
+            spouseName: patientData.spouseName || existingPatient.spouseName,
+            emergencyContact: patientData.emergencyContact || existingPatient.emergencyContact,
+            guardianContact: patientData.guardianContact || existingPatient.guardianContact
+          };
+
+          await Patient.findByIdAndUpdate(existingPatient._id, updateData);
+          results.updated++;
+        } else {
+          // Create new patient
+          const newPatient = new Patient({
+            surname: patientData.surname,
+            firstName: patientData.firstName,
+            middleName: patientData.middleName || '',
+            fullName: patientData.fullName,
+            email: patientData.email ? patientData.email.toLowerCase() : '',
+            contactNumber: patientData.contactNumber || '',
+            cellNumber: patientData.cellNumber || '',
+            dateOfBirth: patientData.dateOfBirth,
+            birthplace: patientData.birthplace || '',
+            gender: patientData.gender,
+            religion: patientData.religion || '',
+            address: patientData.address || '',
+            patientType: patientData.patientType || 'visitor',
+            department: patientData.department,
+            course: patientData.course,
+            yearLevel: patientData.yearLevel,
+            section: patientData.section,
+            bloodType: patientData.bloodType || 'Unknown',
+            allergies: patientData.allergies || [],
+            fatherName: patientData.fatherName || '',
+            motherName: patientData.motherName || '',
+            spouseName: patientData.spouseName || '',
+            emergencyContact: patientData.emergencyContact,
+            guardianContact: patientData.guardianContact,
+            isRegisteredUser: patientData.isRegisteredUser || false,
+            isArchived: false
+          });
+
+          await newPatient.save();
+          results.restored++;
+        }
+      } catch (error) {
+        results.skipped++;
+        results.errors.push({
+          row: i + 1,
+          reason: error.message,
+          data: backup.patients[i]
+        });
+      }
+    }
+
+    // Log restore action
+    await createAuditLog({
+      user: req.user,
+      action: 'RESTORE',
+      resource: 'Patient',
+      description: `Restored patients from backup: ${results.restored} created, ${results.updated} updated, ${results.skipped} skipped`,
+      req,
+      status: 'SUCCESS'
+    });
+
+    console.log(`✅ Patient restore completed: ${results.restored} created, ${results.updated} updated, ${results.skipped} skipped`);
+
+    res.status(200).json({
+      message: 'Patient data restored successfully',
+      results
+    });
+  } catch (error) {
+    console.error('Error in patient restore:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to restore patients',
+      error: error.message
+    });
+  }
+};
