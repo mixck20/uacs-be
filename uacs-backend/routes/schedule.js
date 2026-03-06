@@ -4,7 +4,7 @@ const auth = require('../middleware/auth');
 const scheduleController = require('../controllers/scheduleController');
 
 // Get the current schedule (public - both users and clinic staff can view)
-router.get('/', auth, scheduleController.getSchedule);
+router.get('/', scheduleController.getSchedule);
 
 // Update the entire schedule (clinic staff only)
 router.put('/', auth, scheduleController.updateSchedule);
