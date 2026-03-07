@@ -577,14 +577,44 @@ exports.getAnalytics = async (req, res) => {
 // Export analytics as CSV
 exports.exportAnalytics = async (req, res) => {
   try {
-    // Get all data
-    const users = await User.find().select('name email role isVerified createdAt');
-    const appointments = await Appointment.find()
+    const { dateRange = 'all' } = req.query;
+    
+    // Calculate date range
+    const today = new Date();
+    let startDate, endDate;
+    
+    if (dateRange === 'today') {
+      startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    } else if (dateRange === 'week') {
+      const day = today.getDay();
+      const diff = today.getDate() - day;
+      startDate = new Date(today.getFullYear(), today.getMonth(), diff);
+      endDate = new Date(today.getFullYear(), today.getMonth(), diff + 7);
+    } else {
+      startDate = new Date(1970, 0, 1);
+      endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    }
+    
+    // Get data with date filtering
+    const users = await User.find({
+      createdAt: { $gte: startDate, $lt: endDate }
+    }).select('name email role isVerified createdAt');
+    
+    const appointments = await Appointment.find({
+      date: { $gte: startDate, $lt: endDate }
+    })
       .populate('patient', 'name email')
       .select('patient date status reason createdAt');
     
     // Create CSV sections
     let csv = '';
+    
+    // Header with date range
+    const dateLabel = dateRange === 'today' ? 'Today' : dateRange === 'week' ? 'This Week' : 'All Data';
+    csv += `ANALYTICS REPORT - ${dateLabel}\n`;
+    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += '\n';
     
     // User Statistics
     csv += 'USER STATISTICS\n';
@@ -641,8 +671,9 @@ exports.exportAnalytics = async (req, res) => {
     csv += `Pending Appointments,${appointments.filter(a => a.status === 'pending').length}\n`;
     csv += `Cancelled Appointments,${appointments.filter(a => a.status === 'cancelled').length}\n`;
     
+    const fileName = dateRange === 'today' ? 'analytics-today' : dateRange === 'week' ? 'analytics-week' : 'analytics-all';
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=analytics-report-${new Date().toISOString().split('T')[0]}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csv);
   } catch (error) {
     console.error('Error exporting analytics:', error);
