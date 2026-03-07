@@ -74,6 +74,7 @@ const appointmentSchema = new mongoose.Schema({
   
   // Consultation notes and prescriptions
   consultationNotes: {
+    complaint: String,
     diagnosis: String,
     symptoms: String,
     vitalSigns: {

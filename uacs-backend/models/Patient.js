@@ -146,7 +146,8 @@ const patientSchema = new mongoose.Schema({
     bloodPressure: String,
     lmp: String, // Last Menstrual Period for females
     
-    // Diagnosis & Treatment
+    // Chief Complaint, Diagnosis & Treatment
+    complaint: String,
     diagnosis: String,
     treatment: String,
     
