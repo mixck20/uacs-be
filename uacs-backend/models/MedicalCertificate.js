@@ -60,6 +60,23 @@ const medicalCertificateSchema = new mongoose.Schema({
   },
   pdfUrl: {
     type: String
+  },
+  // Receipt/Image for certificate confirmation
+  receiptImage: {
+    type: String,  // Base64 or URL to uploaded image
+    default: null
+  },
+  receiptUploadedAt: {
+    type: Date,
+    default: null
+  },
+  receiptConfirmedAt: {
+    type: Date,
+    default: null
+  },
+  receiptConfirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
