@@ -18,7 +18,9 @@ app.use(securityHeaders);
 app.use(cookieParser());
 
 // Middleware
-app.use(express.json());
+// Increase payload size limit for certificate receipt images
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(sanitizeInput);
 // CORS configuration - Allow both production and localhost
 const allowedOrigins = [
