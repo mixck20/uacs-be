@@ -46,6 +46,10 @@ const medicalCertificateSchema = new mongoose.Schema({
   recommendations: {
     type: String
   },
+  clinicNote: {
+    type: String,
+    default: ''
+  },
   certificateNumber: {
     type: String,
     unique: true,

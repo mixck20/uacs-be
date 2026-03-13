@@ -125,6 +125,7 @@ exports.issueCertificate = async (req, res) => {
     certificate.validFrom = validFrom;
     certificate.validUntil = validUntil;
     certificate.recommendations = recommendations;
+    certificate.clinicNote = 'Please bring this certificate when collecting your medical certificate from the clinic.';
     certificate.issuedBy = req.user.id;
 
     await certificate.save();
