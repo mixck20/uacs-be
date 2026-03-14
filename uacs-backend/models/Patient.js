@@ -78,12 +78,31 @@ const patientSchema = new mongoose.Schema({
     enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'],
     default: 'Unknown'
   },
-  medicalHistory: [{
-    condition: String,
-    diagnosis: String,
-    date: Date,
-    notes: String
-  }],
+  
+  // Medical History (Patient Profile Data)
+  medicalHistory: {
+    heartLungProblem: String,
+    heartLungProblemNotes: String,
+    seizureHistory: String,
+    seizureHistoryNotes: String,
+    syncopeHistory: String,
+    syncopeHistoryNotes: String,
+    physicalInjuries: String,
+    physicalInjuriesNotes: String,
+    fractureHistory: String,
+    fractureHistoryNotes: String,
+    scoliosis: String,
+    takingMedicines: String,
+    takingMedicinesNotes: String,
+    othersCheckbox: Boolean,
+    othersNotes: String,
+    lastUpdatedAt: Date,
+    lastUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
+  
   allergies: [String],
   medications: [{
     name: String,
@@ -165,25 +184,6 @@ const patientSchema = new mongoose.Schema({
       height: String
     },
     notes: String,
-    
-    // Medical History
-    medicalHistory: {
-      heartLungProblem: String,
-      heartLungProblemNotes: String,
-      seizureHistory: String,
-      seizureHistoryNotes: String,
-      syncopeHistory: String,
-      syncopeHistoryNotes: String,
-      physicalInjuries: String,
-      physicalInjuriesNotes: String,
-      fractureHistory: String,
-      fractureHistoryNotes: String,
-      scoliosis: String,
-      takingMedicines: String,
-      takingMedicinesNotes: String,
-      othersCheckbox: Boolean,
-      othersNotes: String
-    },
     
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
