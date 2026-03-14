@@ -165,6 +165,26 @@ const patientSchema = new mongoose.Schema({
       height: String
     },
     notes: String,
+    
+    // Medical History
+    medicalHistory: {
+      heartLungProblem: String,
+      heartLungProblemNotes: String,
+      seizureHistory: String,
+      seizureHistoryNotes: String,
+      syncopeHistory: String,
+      syncopeHistoryNotes: String,
+      physicalInjuries: String,
+      physicalInjuriesNotes: String,
+      fractureHistory: String,
+      fractureHistoryNotes: String,
+      scoliosis: String,
+      takingMedicines: String,
+      takingMedicinesNotes: String,
+      othersCheckbox: Boolean,
+      othersNotes: String
+    },
+    
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
